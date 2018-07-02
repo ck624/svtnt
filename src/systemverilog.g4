@@ -41,7 +41,7 @@ source_text :
   
 description:
   module_declaration
-  | udp_declaration
+//TODO:  | udp_declaration
   | interface_declaration
   | program_declaration
   | package_declaration
@@ -80,7 +80,7 @@ interface_declaration:
   'endinterface' ( ':' interface_identifier )?
   | interface_ansi_header ( timeunits_declaration )? ( non_port_interface_item )*
   'endinterface' ( ':' interface_identifier )?
-  | ( attribute_instance )* interface interface_identifier '(' '.*' ')' ';'
+  | ( attribute_instance )* 'interface' interface_identifier '(' '.*' ')' ';'
   ( timeunits_declaration )? ( interface_item )*
   'endinterface' ( ':' interface_identifier )?
   | 'extern' interface_nonansi_header
@@ -103,7 +103,7 @@ program_declaration:
   'endprogram' ( ':' program_identifier )?
   | program_ansi_header ( timeunits_declaration )? ( non_port_program_item )*
   'endprogram' ( ':' program_identifier )?
-  | ( attribute_instance )* program program_identifier '(' '.*' ')' ';'
+  | ( attribute_instance )* 'program' program_identifier '(' '.*' ')' ';'
   ( timeunits_declaration )? ( program_item )*
   'endprogram' ( ':' program_identifier )?
   | 'extern' program_nonansi_header
@@ -120,7 +120,7 @@ program_ansi_header:
   ;
   
 checker_declaration:
-  checker checker_identifier ( '(' ( checker_port_list )? ')' )? ';'
+  'checker' checker_identifier ( '(' ( checker_port_list )? ')' )? ';'
   ( ( attribute_instance )* checker_or_generate_item )*
   'endchecker' ( ':' checker_identifier )?
   ;
@@ -626,8 +626,45 @@ identifier_list:
   ;
   
 //***********************************************************************
-//* A.1.11 Constraints
+//* A.1.11 Package items
 //***********************************************************************
+package_item:
+  package_or_generate_item_declaration
+  | anonymous_program
+  | package_export_declaration
+  | timeunits_declaration
+  ;
+  
+package_or_generate_item_declaration:
+  net_declaration
+  | data_declaration
+  | task_declaration
+  | function_declaration
+  | checker_declaration
+  | dpi_import_export
+  | extern_constraint_declaration
+  | class_declaration
+  | class_constructor_declaration
+  | local_parameter_declaration ';'
+  | parameter_declaration ';'
+  | covergroup_declaration
+  | overload_declaration
+  | assertion_item_declaration
+  | ';'
+  ;
+  
+anonymous_program: 
+  'program' ';' ( anonymous_program_item )* 'endprogram'
+  ;
+  
+anonymous_program_item:
+  task_declaration
+  | function_declaration
+  | class_declaration
+  | covergroup_declaration
+  | class_constructor_declaration
+  | ';'
+  ;
 
 //***************************************************************************
 //* A.2 Declarations
@@ -905,16 +942,157 @@ delay_value:
   ;
 
 //***********************************************************************
-//* TODO: A.2.3 Declaration lists
+//* A.2.3 Declaration lists
 //***********************************************************************
 
-//***********************************************************************
-//* TODO: A.2.4 Declaration assignments
-//***********************************************************************
+list_of_defparam_assignments: 
+  defparam_assignment ( ',' defparam_assignment )*
+  ;
+  
+list_of_genvar_identifiers: 
+  genvar_identifier ( ',' genvar_identifier )*
+  ;
+  
+list_of_interface_identifiers: 
+  interface_identifier ( unpacked_dimension )*
+    ( ',' interface_identifier ( unpacked_dimension )* )*
+  ;
+  
+list_of_net_decl_assignments: 
+  net_decl_assignment ( ',' net_decl_assignment )*
+  ;
+  
+list_of_param_assignments: 
+  param_assignment ( ',' param_assignment )*
+  ;
+  
+list_of_port_identifiers: 
+  port_identifier ( unpacked_dimension )*
+    ( ',' port_identifier ( unpacked_dimension )* )*
+  ;
+  
+list_of_udp_port_identifiers: 
+  port_identifier ( ',' port_identifier )*
+  ;
+  
+list_of_specparam_assignments: 
+  specparam_assignment ( ',' specparam_assignment )*
+  ;
+  
+list_of_tf_variable_identifiers: 
+  port_identifier ( variable_dimension )* ( '=' expression )?
+  ( ',' port_identifier ( variable_dimension )* ( '=' expression )? )*
+  ;
+  
+list_of_type_assignments: 
+  type_assignment ( ',' type_assignment )*
+  ;
+  
+list_of_variable_decl_assignments: 
+  variable_decl_assignment ( ',' variable_decl_assignment )*
+  ;
+  
+list_of_variable_identifiers: 
+  variable_identifier ( variable_dimension )*
+    ( ',' variable_identifier ( variable_dimension )* )*
+  ;
+  
+list_of_variable_port_identifiers: 
+  port_identifier ( variable_dimension )* ( '=' constant_expression )?
+    ( ',' port_identifier ( variable_dimension )* ( '=' constant_expression )? )*
+  ; 
 
 //***********************************************************************
-//* TODO: A.2.5 Declaration ranges
+//* A.2.4 Declaration assignments
 //***********************************************************************
+
+defparam_assignment: 
+  hierarchical_parameter_identifier '=' constant_mintypmax_expression
+  ;
+  
+net_decl_assignment: 
+  net_identifier ( unpacked_dimension )* ( '=' expression )?
+  ;
+  
+param_assignment:
+  parameter_identifier ( unpacked_dimension )* ( '=' constant_param_expression )?
+  ;
+  
+specparam_assignment:
+  specparam_identifier '=' constant_mintypmax_expression
+  | pulse_control_specparam
+  ;
+  
+type_assignment:
+  type_identifier ( '=' data_type )?
+  ;
+  
+pulse_control_specparam:
+  'PATHPULSE$' '=' '(' reject_limit_value ( ',' error_limit_value )? ')'
+  | 'PATHPULSE$' specify_input_terminal_descriptor '$' specify_output_terminal_descriptor
+    '=' '(' reject_limit_value ( ',' error_limit_value )? ')'
+  ;
+  
+error_limit_value: 
+  limit_value
+  ;
+  
+reject_limit_value: 
+  limit_value
+  ;
+  
+limit_value: 
+  constant_mintypmax_expression
+  ;
+  
+variable_decl_assignment:
+  variable_identifier ( variable_dimension )* ( '=' expression )?
+  | dynamic_array_variable_identifier unsized_dimension ( variable_dimension )*
+    ( '=' dynamic_array_new )?
+  | class_variable_identifier ( '=' class_new )
+  ;
+  
+class_new:
+  ( class_scope )? 'new' ( '(' list_of_arguments ')' )?
+  | 'new' expression
+  ;
+  
+dynamic_array_new: 
+  'new' ( expression )? ( '(' expression ')' )?
+  ; 
+
+//***********************************************************************
+//* A.2.5 Declaration ranges
+//***********************************************************************
+unpacked_dimension:
+  '[' constant_range ']'
+  | '[' constant_expression ']'
+  ;
+  
+packed_dimension:
+  '[' constant_range ']'
+  | unsized_dimension
+  ;
+  
+associative_dimension:
+  '[' data_type ']'
+  | '[' '*' ']'
+  ;
+  
+variable_dimension:
+  unsized_dimension
+  | unpacked_dimension
+  | associative_dimension
+  | queue_dimension
+  ;
+  
+queue_dimension: 
+  '[' '$' ( ':' constant_expression )? ']'
+  ;
+  
+unsized_dimension: 
+  '[' ']'
+  ;
 
 //***********************************************************************
 //* TODO: A.2.6 Function declarations
@@ -939,6 +1117,549 @@ delay_value:
 //***********************************************************************
 //* TODO: A.2.11 Covergroup declarations
 //***********************************************************************
+
+//***************************************************************************
+//* A.3 Primitive instances
+//***************************************************************************
+
+//***********************************************************************
+//* TODO: A.3.1 Primitive instantiation and instances
+//***********************************************************************
+
+//***********************************************************************
+//* TODO: A.3.2 Primitive strengths
+//***********************************************************************
+
+//***********************************************************************
+//* TODO: A.3.3 Primitive terminals
+//***********************************************************************
+
+//***********************************************************************
+//* TODO: A.3.4 Primitive gate and switch types
+//***********************************************************************
+
+//***************************************************************************
+//* A.4 Instantiations
+//***************************************************************************
+
+//*************************************************************************
+//* A.4.1 Instantiation
+//*************************************************************************
+
+//***********************************************************************
+//* A.4.1.1 Module instantiation
+//***********************************************************************
+module_instantiation:
+  module_identifier ( parameter_value_assignment )? hierarchical_instance ( ',' hierarchical_instance )* ';'
+  ;
+  
+parameter_value_assignment: 
+  '#' '(' ( list_of_parameter_assignments )? ')'
+  ;
+
+list_of_parameter_assignments:
+  ordered_parameter_assignment ( ',' ordered_parameter_assignment )*
+  | named_parameter_assignment ( ',' named_parameter_assignment )*
+  ;
+  
+ordered_parameter_assignment: 
+  param_expression
+  ;
+  
+named_parameter_assignment: 
+  '.' parameter_identifier '(' ( param_expression )? ')'
+  ;
+  
+hierarchical_instance: 
+  name_of_instance '(' ( list_of_port_connections )? ')'
+  ;
+  
+name_of_instance: 
+  instance_identifier ( unpacked_dimension )*
+  ;
+  
+list_of_port_connections:
+  ordered_port_connection ( ',' ordered_port_connection )*
+  | named_port_connection ( ',' named_port_connection )*
+  ; 
+ordered_port_connection: 
+  ( attribute_instance )* ( expression )?
+  ;
+  
+named_port_connection:
+  ( attribute_instance )* '.' port_identifier ( '(' ( expression )? ')' )?
+  | ( attribute_instance ) '.*'
+  ;
+
+//***********************************************************************
+//* TODO: A.4.1.2 Interface instantiation
+//***********************************************************************
+
+//***********************************************************************
+//* TODO: A.4.1.3 Program instantiation
+//***********************************************************************
+
+//***********************************************************************
+//* TODO: A.4.1.4 Checker instantiation
+//***********************************************************************
+
+//*************************************************************************
+//* A.4.2 Generated instantiation
+//*************************************************************************
+
+//***************************************************************************
+//* A.4 UDP declaration and instantiation
+//***************************************************************************
+
+//*************************************************************************
+//* A.5.1 UDP declaration
+//*************************************************************************
+
+//*************************************************************************
+//* A.5.2 UDP ports
+//*************************************************************************
+
+//*************************************************************************
+//* A.5.3 UDP body
+//*************************************************************************
+
+//*************************************************************************
+//* A.5.4 UDP instantiation
+//*************************************************************************
+
+//***************************************************************************
+//* A.6 Behavioral statements
+//***************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.1 Continuous assignment and net alias statements
+//*************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.2 Procedural blocks and assignments
+//*************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.3 Parallel and sequential blocks
+//*************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.4 Statements
+//*************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.5 Timing control statements
+//*************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.6 Conditional statements
+//*************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.7 Case statements
+//*************************************************************************
+
+//***********************************************************************
+//* TODO: A.6.7.1 Patterns
+//***********************************************************************
+
+//*************************************************************************
+//* TODO: A.6.8 Looping statements
+//*************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.9 Subroutine call statements
+//*************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.10 Assertion statements
+//*************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.11 Clocking block
+//*************************************************************************
+
+//*************************************************************************
+//* TODO: A.6.12 Randsequence
+//*************************************************************************
+
+//***************************************************************************
+//* A.7 Specify section
+//***************************************************************************
+
+//***************************************************************************
+//* A.8 Expressions
+//***************************************************************************
+
+//*************************************************************************
+//* A.8.1 Concatenations
+//*************************************************************************
+
+concatenation:
+  '{' expression ( ',' expression )* '}'
+  ;
+  
+constant_concatenation:
+  '{' constant_expression ( ',' constant_expression )* '}'
+  ;
+  
+constant_multiple_concatenation: 
+  '{' constant_expression constant_concatenation '}'
+  ;
+  
+module_path_concatenation: 
+  '{' module_path_expression ( ',' module_path_expression )* '}'
+  ;
+  
+module_path_multiple_concatenation: 
+  '{' constant_expression module_path_concatenation '}'
+  ;
+  
+multiple_concatenation: 
+  '{' expression concatenation '}'
+  ;
+  
+streaming_concatenation: 
+  '{' stream_operator ( slice_size )? stream_concatenation '}'
+  ;
+  
+stream_operator: 
+  '>>' | '<<'
+  ;
+  
+slice_size: 
+  simple_type | constant_expression
+  ;
+  
+stream_concatenation: 
+  '{' stream_expression ( ',' stream_expression )* '}'
+  ;
+  
+stream_expression: 
+  expression ( 'with' '[' array_range_expression ']' )?
+  ;
+  
+array_range_expression:
+  expression
+  | expression ':' expression
+  | expression '+:' expression
+  | expression '-:' expression
+  ;
+  
+empty_queue: 
+  '{' '}'
+  ;
+
+//*************************************************************************
+//* A.8.2 Subroutine calls
+//*************************************************************************
+constant_function_call: 
+  function_subroutine_call
+  ;
+  
+tf_call: 
+  ps_or_hierarchical_tf_identifier ( attribute_instance )* ( '(' list_of_arguments ')' )?
+  ;
+  
+system_tf_call:
+  system_tf_identifier ( '(' list_of_arguments ')' )? 
+  | system_tf_identifier '(' data_type ( ',' expression )? ')'
+  ;
+  
+subroutine_call:
+  tf_call
+  | system_tf_call
+  | method_call
+  | ( 'std' '::' )? randomize_call
+  ;
+  
+function_subroutine_call: 
+  subroutine_call
+  ;
+  
+list_of_arguments:
+  ( expression )? ( ',' ( expression )? )* ( ',' '.' identifier '(' ( expression )? ')' )*
+  | '.' identifier '(' ( expression )? ')' ( ',' '.' identifier '(' ( expression )? ')' )*
+  ;
+  
+method_call: 
+  method_call_root '.' method_call_body
+  ;
+
+method_call_body:
+  method_identifier ( attribute_instance )* ( '(' list_of_arguments ')' )?
+  | built_in_method_call
+  ;
+  
+built_in_method_call:
+  array_manipulation_call
+  | randomize_call
+  ;
+  
+array_manipulation_call:
+  array_method_name ( attribute_instance )*
+  ( '(' list_of_arguments ')' )?
+  ( 'with' '(' expression ')' )?
+  ;
+  
+randomize_call:
+  randomize ( attribute_instance )*
+  ( '(' ( variable_identifier_list | null )? ')' )?
+  ( 'with' ( '(' ( identifier_list )? ')' )? constraint_block )?
+  ;
+  
+method_call_root: 
+  primary | implicit_class_handle
+  ;
+  
+array_method_name:
+  method_identifier | 'unique' | 'and' | 'or' | 'xor'
+  ;
+  
+//*************************************************************************
+//* A.8.3 Expressions
+//*************************************************************************
+inc_or_dec_expression:
+  inc_or_dec_operator ( attribute_instance )* variable_lvalue
+  | variable_lvalue ( attribute_instance )* inc_or_dec_operator
+  ;
+  
+conditional_expression: 
+  cond_predicate '?' ( attribute_instance )* expression ':' expression
+  ;
+  
+constant_expression:
+  constant_primary
+  | unary_operator ( attribute_instance )* constant_primary
+  | constant_expression binary_operator ( attribute_instance )* constant_expression
+  | constant_expression '?' ( attribute_instance )* constant_expression ':' constant_expression
+  ;
+  
+constant_mintypmax_expression:
+  constant_expression
+  | constant_expression ':' constant_expression ':' constant_expression
+  ;
+  
+constant_param_expression:
+  constant_mintypmax_expression | data_type | '$'
+  ;
+  
+param_expression: 
+  mintypmax_expression | data_type | '$'
+  ;
+  
+constant_range_expression:
+  constant_expression
+  | constant_part_select_range
+  ;
+  
+constant_part_select_range:
+  constant_range
+  | constant_indexed_range
+  ;
+  
+constant_range: 
+  constant_expression ':' constant_expression
+  ;
+  
+constant_indexed_range:
+  constant_expression '+:' constant_expression
+  | constant_expression '-:' constant_expression
+  ;
+  
+expression:
+  primary
+  | unary_operator ( attribute_instance )* primary
+  | inc_or_dec_expression
+  | '(' operator_assignment ')'
+  | expression binary_operator ( attribute_instance )* expression
+  | conditional_expression
+  | inside_expression
+  | tagged_union_expression
+  ;
+  
+tagged_union_expression:
+  'tagged' member_identifier ( expression )?
+  ;
+  
+inside_expression: 
+  expression 'inside' '{' open_range_list '}'
+  ;
+  
+value_range:
+  expression
+  | '[' expression ':' expression ']'
+  ;
+  
+mintypmax_expression:
+  expression
+  | expression ':' expression ':' expression
+  ;
+  
+module_path_conditional_expression: 
+  module_path_expression '?' ( attribute_instance )* module_path_expression ':' module_path_expression
+  ; 
+  
+module_path_expression:
+  module_path_primary
+  | unary_module_path_operator ( attribute_instance )* module_path_primary
+  | module_path_expression binary_module_path_operator ( attribute_instance )* module_path_expression
+  | module_path_conditional_expression
+  ; 
+  
+module_path_mintypmax_expression:
+  module_path_expression
+  | module_path_expression ':' module_path_expression ':' module_path_expression
+  ;
+  
+part_select_range: 
+  constant_range | indexed_range
+  ;
+  
+indexed_range:
+  expression '+:' constant_expression
+  | expression '-:' constant_expression
+  ;
+  
+genvar_expression: 
+  constant_expression 
+  ;
+
+//*************************************************************************
+//* A.8.4 Primaries
+//*************************************************************************
+constant_primary:
+  primary_literal
+  | ps_parameter_identifier constant_select
+  | specparam_identifier ( '[' constant_range_expression ']' )?
+  | genvar_identifier
+  | formal_port_identifier constant_select 
+  | ( package_scope | class_scope )? enum_identifier
+  | constant_concatenation ( '[' constant_range_expression ']' )?
+  | constant_multiple_concatenation ( '[' constant_range_expression ']' )?
+  | constant_function_call
+  | constant_let_expression
+  | '(' constant_mintypmax_expression ')'
+  | constant_cast
+  | constant_assignment_pattern_expression
+  | type_reference
+  ;
+  
+module_path_primary:
+  number
+  | identifier
+  | module_path_concatenation
+  | module_path_multiple_concatenation
+  | function_subroutine_call
+  | '(' module_path_mintypmax_expression ')'
+  ;
+  
+primary:
+  primary_literal
+  | ( class_qualifier | package_scope )? hierarchical_identifier select
+  | empty_queue
+  | concatenation ( '[' range_expression ']' )?
+  | multiple_concatenation ( '[' range_expression ']' )?
+  | function_subroutine_call
+  | let_expression
+  | '(' mintypmax_expression ')'
+  | cast
+  | assignment_pattern_expression
+  | streaming_concatenation
+  | sequence_method_call
+  | 'this'
+  | '$'
+  | 'null'
+  ; 
+  
+class_qualifier: 
+  ( 'local' '::' )? ( implicit_class_handle '.' | class_scope )?
+  ;
+  
+range_expression:
+  expression
+  | part_select_range
+  ;
+  
+primary_literal: 
+  number 
+  | time_literal 
+  | unbased_unsized_literal 
+  | string_literal
+  ;
+  
+time_literal:
+  unsigned_number time_unit
+  | fixed_point_number time_unit
+  ;
+  
+time_unit: 
+  's' 
+  | 'ms' 
+  | 'us' 
+  | 'ns' 
+  | 'ps' 
+  | 'fs'
+  ;
+  
+implicit_class_handle: 
+  'this' 
+  | 'super' 
+  | 'this' '.' 'super'
+  ;
+  
+bit_select: 
+  '{' ( expression )? '}'
+  ;
+  
+select:
+  ( '{' '.' member_identifier bit_select '}' '.' member_identifier )? bit_select ( '[' part_select_range ']' )?
+  ;
+  
+nonrange_select:
+  ( '{' '.' member_identifier bit_select '}' '.' member_identifier )? bit_select
+  ;
+  
+constant_bit_select: 
+  '{' ( constant_expression )? '}'
+  ;
+  
+constant_select:
+  ( '{' '.' member_identifier constant_bit_select '}' '.' member_identifier )? constant_bit_select
+    ( '[' constant_part_select_range ']' )?
+  ;
+  
+constant_cast:
+  casting_type '\'' '(' constant_expression ')'
+  ;
+  
+constant_let_expression: 
+  let_expression
+  ;
+  
+cast:
+  casting_type '\'' '(' expression ')'
+  ;
+  
+//***********************************************************************
+//* A.8.5 Expression left-side values
+//***********************************************************************
+net_lvalue:
+  ps_or_hierarchical_net_identifier constant_select
+  | '{' net_lvalue ( ',' net_lvalue )* '}'
+  | ( assignment_pattern_expression_type )? assignment_pattern_net_lvalue
+  ;
+  
+variable_lvalue:
+  ( implicit_class_handle '.' | package_scope )? hierarchical_variable_identifier select
+  | '{' variable_lvalue ( ',' variable_lvalue )* '}'
+  | ( assignment_pattern_expression_type )? assignment_pattern_variable_lvalue
+  | streaming_concatenation
+  ;
+  
+nonrange_variable_lvalue:
+  ( implicit_class_handle '.' | package_scope )? hierarchical_variable_identifier nonrange_select 
+  ;
 
 //***********************************************************************
 //* A.8.6 Operators
@@ -999,7 +1720,44 @@ SL_COMMENT 	: '//' .*? '\r'? ('\n'|EOF) -> channel (HIDDEN) ;
 
 ML_COMMENT	: '/*' .*? '*/' -> channel (HIDDEN) ;
 
-// A.9.3 
+//***********************************************************************
+//* A.9.3  Identifiers
+//***********************************************************************
+array_identifier: identifier;
+block_identifier: identifier;
+bin_identifier: identifier;
+C_IDENTIFIER: [a-zA-Z_] [a-zA-Z0-9_]*;
+c_identifier: C_IDENTIFIER ; 
+cell_identifier: identifier;
+checker_identifier: identifier;
+class_identifier: identifier;
+class_variable_identifier: variable_identifier;
+clocking_identifier: identifier;
+config_identifier: identifier;
+const_identifier: identifier;
+constraint_identifier: identifier;
+covergroup_identifier: identifier;
+covergroup_variable_identifier: variable_identifier;
+cover_point_identifier: identifier;
+cross_identifier: identifier;
+dynamic_array_variable_identifier: variable_identifier;
+enum_identifier: identifier;
+ESCAPED_ID : '\\' ('\u0021'..'\u007E')+ ~ [ \r\t\n]* ;
+escaped_identifier: ESCAPED_ID;
+formal_identifier: identifier;
+formal_port_identifier: identifier;
+function_identifier: identifier;
+generate_block_identifier: identifier;
+genvar_identifier: identifier;
+hierarchical_array_identifier: hierarchical_identifier;
+hierarchical_block_identifier: hierarchical_identifier;
+hierarchical_event_identifier: hierarchical_identifier;
+hierarchical_identifier: ( '$root' '.' )? ( identifier constant_bit_select '.' )* identifier;
+hierarchical_net_identifier: hierarchical_identifier;
+hierarchical_parameter_identifier: hierarchical_identifier;
+hierarchical_property_identifier: hierarchical_identifier;
+hierarchical_sequence_identifier: hierarchical_identifier;
+hierarchical_task_identifier: hierarchical_identifier;
 hierarchical_tf_identifier : hierarchical_identifier;
 
 hierarchical_variable_identifier : hierarchical_identifier;
