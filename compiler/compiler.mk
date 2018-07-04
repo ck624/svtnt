@@ -1,6 +1,5 @@
 
-SVTNT_SRC_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
-SVTNT_DIR := $(abspath $(SVTNT_SRC_DIR)/..)
+COMPILER_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 
 ifneq (1,$(RULES))
 
@@ -18,10 +17,11 @@ ANTLR_RUNTIME_WIN_ZIP:=antlr4-cpp-runtime-4.7.1-vs2015.zip
 ANTLR_RUNTIME_WIN_URL:=$(ANTLR_DOWNLOAD_URL)/$(ANTLR_RUNTIME_WIN_ZIP)
 ANTLR_JAR:=antlr-$(ANTLR_VERSION)-complete.jar
 ANTLR_JAR_URL:=$(ANTLR_DOWNLOAD_URL)/$(ANTLR_JAR)
-ANTLR_PATCH_FILE = $(SVTNT_SRC_DIR)/antlr4-cpp-runtime-$(ANTLR_VERSION)-source.patch
+ANTLR_PATCH_FILE = $(COMPILER_DIR)/src/antlr4-cpp-runtime-$(ANTLR_VERSION)-source.patch
+ANTLR4_CPP_RUNTIME_DIR=antlr4-cpp-runtime/runtime/src
 
 
-SRC_DIRS += $(PSS_COMPILER_SRC_DIR)
+SRC_DIRS += $(COMPILER_DIR)/src
 SRC_DIRS += $(ANTLR4_CPP_RUNTIME_DIR) $(ANTLR4_CPP_RUNTIME_DIR)/atn 
 SRC_DIRS += $(ANTLR4_CPP_RUNTIME_DIR)/dfa $(ANTLR4_CPP_RUNTIME_DIR)/support 
 SRC_DIRS += $(ANTLR4_CPP_RUNTIME_DIR)/tree $(ANTLR4_CPP_RUNTIME_DIR)/misc
@@ -29,15 +29,26 @@ SRC_DIRS += $(ANTLR4_CPP_RUNTIME_DIR)/tree/pattern
 SRC_DIRS += $(ANTLR4_CPP_RUNTIME_DIR)/tree/xpath 
 SRC_DIRS += grammar 
 
-SVTNT_SRC = $(notdir $(wildcard $(SVTNT_SRC_DIR)/*.cpp))
+COMPILER_SRC = $(notdir $(wildcard $(COMPILER_DIR)/src/*.cpp))
 
 ANTLR4_CXXFLAGS += $(CXXFLAGS)
 ANTLR4_CXXFLAGS += -DANTLR4CPP_EXPORTS
 
 UNPACK_TARGETS += $(BUILD_DIR)/runtime.unpack
 
+COMPILER_DEPS = $(PLATFORM_LIB_DIR)/$(DLIBPREF)svtnt_compiler$(DLIBEXT)
+LIB_TARGETS += $(COMPILER_DEPS)
+
 
 else # Rules
+
+$(PLATFORM_LIB_DIR)/$(DLIBPREF)svtnt_compiler$(DLIBEXT) : \
+  $(foreach o,$(ANTLR_RT_SRC:.cpp=.o),antlr/$(o)) \
+  $(COMPILER_SRC:.cpp=.o) \
+  $(SV_GRAMMAR_SRC:.cpp=.o) \
+  $(MODEL_DEPS)
+	$(Q)if test ! -d `dirname $@`; then mkdir -p `dirname $@`; fi
+	$(Q)$(LINK_DLIB)
 
 ifeq (true,$(VERBOSE))
 antlr/%.o : %.cpp
@@ -58,10 +69,10 @@ $(BUILD_DIR)/runtime.unpack : $(PACKAGES_DIR)/$(ANTLR_RUNTIME_SRC_ZIP)
 	$(Q)cd $(BUILD_DIR)/antlr4-cpp-runtime ; patch -p1 < $(ANTLR_PATCH_FILE)
 	$(Q)touch $@
 
-sv-grammar.gen : $(SVTNT_SRC_DIR)/systemverilog.g4 $(PACKAGES_DIR)/$(ANTLR_JAR)
+sv-grammar.gen : $(COMPILER_DIR)/src/SystemVerilog.g4 $(PACKAGES_DIR)/$(ANTLR_JAR)
 	$(Q)mkdir -p grammar
 	$(Q)java -jar $(PACKAGES_DIR)/$(ANTLR_JAR) \
-		-Dlanguage=Cpp -visitor -o grammar $(SVTNT_SRC_DIR)/systemverilog.g4
+		-Dlanguage=Cpp -visitor -o grammar $(COMPILER_DIR)/src/SystemVerilog.g4
 	$(Q)touch $@
 
 grammar/src.mk : sv-grammar.gen 
@@ -88,7 +99,8 @@ $(PACKAGES_DIR)/$(ANTLR_RUNTIME_SRC_ZIP) :
 $(PACKAGES_DIR)/$(ANTLR_RUNTIME_WIN_ZIP) : 
 	$(Q)if test ! -d `dirname $@`; then mkdir -p `dirname $@`; fi
 	$(Q)$(WGET) -O $@ $(ANTLR_RUNTIME_WIN_URL)
-	
+
+-include $(SV_GRAMMAR_SRC:.cpp=.d)	
 -include $(SVNT_SRC:.cpp=.d)
 
 endif

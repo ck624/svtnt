@@ -28,12 +28,13 @@ EXEEXT :=
 PLATFORM := linux_x86_64
 endif
 
-BIN_DIR = $(BUILD_RESULT_DIR)/svtnt-$(version)/bin
-PLATFORM_BIN_DIR = $(BUILD_RESULT_DIR)/svtnt-$(version)/$(PLATFORM)/bin
+PREFIX ?= $(BUILD_RESULT_DIR)/svtnt-$(version)
+BIN_DIR = $(PREFIX)/bin
+PLATFORM_BIN_DIR = $(PREFIX)/$(PLATFORM)/bin
 ifeq (true,$(IS_WIN))
-PLATFORM_LIB_DIR = $(BUILD_RESULT_DIR)/svtnt-$(version)/$(PLATFORM)/bin
+PLATFORM_LIB_DIR = $(PREFIX)/$(PLATFORM)/bin
 else
-PLATFORM_LIB_DIR = $(BUILD_RESULT_DIR)/svtnt-$(version)/$(PLATFORM)/lib
+PLATFORM_LIB_DIR = $(PREFIX)/$(PLATFORM)/lib
 endif
 
 ifeq (true,$(IS_WIN))
@@ -47,7 +48,7 @@ ifeq (true,$(IS_WIN))
   	endif
 else
 	COMPILER := gcc
-    LIB_TARGETS += linux_gcc_libs.d
+#    LIB_TARGETS += linux_gcc_libs.d
 endif
 
 ifeq (cl, $(COMPILER))

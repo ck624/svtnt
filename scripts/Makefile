@@ -11,7 +11,9 @@ endif
 
 include $(SVTNT_SCRIPTS_DIR)/common.mk
 
-MK_INCLUDES += $(SVTNT_DIR)/src/svtnt.mk
+MK_INCLUDES += $(SVTNT_DIR)/compiler/compiler.mk
+MK_INCLUDES += $(SVTNT_DIR)/model/model.mk
+MK_INCLUDES += $(SVTNT_DIR)/svtnt/svtnt.mk
 
 ifeq (true,$(BUILD))
 include $(MK_INCLUDES)
@@ -43,5 +45,7 @@ ifeq (true,$(BUILD))
 __unpack : $(UNPACK_TARGETS)
 
 __build : $(LIB_TARGETS) $(EXE_TARGETS)
+
+include $(SVTNT_SCRIPTS_DIR)/common.mk
 
 endif

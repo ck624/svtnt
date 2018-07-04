@@ -3,7 +3,7 @@
  *
  ****************************************************************************/
  
-grammar systemverilog;
+grammar SystemVerilog;
 
 // A.1 Source text
 
@@ -126,7 +126,7 @@ checker_declaration:
   ;
   
 class_declaration:
-  ( 'virtual' )? 'class' ( lifetime )? class_identifier ( parameter_port_list )?
+  ( 'virtual' )? 'class' ( lifetime )? name=class_identifier ( parameter_port_list )?
   ( 'extends' class_type ( '(' list_of_arguments ')' )? )?
   ( 'implements' interface_class_type ( ',' interface_class_type )* )? ';'
   ( class_item )*
@@ -138,7 +138,7 @@ interface_class_type:
   ;
   
 interface_class_declaration:
-  'interface' 'class' class_identifier ( parameter_port_list )?
+  'interface' 'class' name=class_identifier ( parameter_port_list )?
   ( 'extends' interface_class_type ( ',' interface_class_type )* )? ';'
   ( interface_class_item )*
   'endclass' ( ':' class_identifier )?
@@ -157,7 +157,7 @@ interface_class_method:
   ;
   
 package_declaration:
-  ( attribute_instance )* 'package' ( lifetime )? package_identifier ';'
+  ( attribute_instance )* 'package' ( lifetime )? name=package_identifier ';'
   ( timeunits_declaration )? ( ( attribute_instance )* package_item )*
   'endpackage' ( ':' package_identifier )?
   ;
@@ -2642,7 +2642,7 @@ randomize_call:
   ;
   
 method_call_root: 
-  primary | implicit_class_handle
+  /* TODO: LR primary |*/ implicit_class_handle
   ;
   
 array_method_name:
@@ -2706,8 +2706,8 @@ expression:
   | inc_or_dec_expression
   | '(' operator_assignment ')'
   | expression binary_operator ( attribute_instance )* expression
-  | conditional_expression
-  | inside_expression
+//TODO: LR  | conditional_expression
+//TODO: LR  | inside_expression
   | tagged_union_expression
   ;
   
@@ -2737,7 +2737,7 @@ module_path_expression:
   module_path_primary
   | unary_module_path_operator ( attribute_instance )* module_path_primary
   | module_path_expression binary_module_path_operator ( attribute_instance )* module_path_expression
-  | module_path_conditional_expression
+//TODO: LR  | module_path_conditional_expression
   ; 
   
 module_path_mintypmax_expression:
@@ -2771,9 +2771,9 @@ constant_primary:
   | constant_concatenation ( '[' constant_range_expression ']' )?
   | constant_multiple_concatenation ( '[' constant_range_expression ']' )?
   | constant_function_call
-//TODO:  | constant_let_expression
+  | constant_let_expression
   | '(' constant_mintypmax_expression ')'
-  | constant_cast
+//TODO: LR  | constant_cast
   | constant_assignment_pattern_expression
   | type_reference
   ;
@@ -2794,12 +2794,12 @@ primary:
   | concatenation ( '[' range_expression ']' )?
   | multiple_concatenation ( '[' range_expression ']' )?
   | function_subroutine_call
-//TODO:  | let_expression
+  | let_expression
   | '(' mintypmax_expression ')'
   | cast
   | assignment_pattern_expression
   | streaming_concatenation
-//TODO:  | sequence_method_call
+  | sequence_method_call
   | 'this'
   | '$'
   | 'null'
@@ -2866,9 +2866,9 @@ constant_cast:
   casting_type '\'' '(' constant_expression ')'
   ;
   
-//TODO: constant_let_expression: 
-//  let_expression
-//  ;
+constant_let_expression: 
+  let_expression
+  ;
   
 cast:
   casting_type '\'' '(' expression ')'
