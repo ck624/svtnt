@@ -10,7 +10,7 @@
 #include "shptr.h"
 #include "IChildItem.h"
 
-class IScopeItem {
+class IScopeItem : public virtual IChildItem {
 public:
 
 	virtual ~IScopeItem() { }

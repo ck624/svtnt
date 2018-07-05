@@ -21,7 +21,9 @@ public:
 
 	void add_define(const std::string &key, const std::string &val);
 
-    bool parse(const std::string &path);
+    bool parse(
+    		std::istream		&in,
+			const std::string	&path);
 
     bool link();
 

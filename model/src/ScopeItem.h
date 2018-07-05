@@ -19,7 +19,7 @@ public:
 
 	virtual const std::vector<IChildItemH> &getChildren() const { return m_children; }
 
-	virtual void addChild(const IChildItemH &c) { m_children.push_back(c); }
+	virtual void addChild(const IChildItemH &c);
 
 private:
 	std::vector<IChildItemH>			m_children;

@@ -7,6 +7,8 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <iostream>
+#include "SVTNTCompiler.h"
 
 class SVTNT {
 public:
@@ -20,7 +22,17 @@ public:
 
 	bool compile(const std::vector<std::string> &files);
 
-	bool generate(const char &outdir);
+	// Method used by compile to parse a single file
+	bool parse(std::istream &in, const std::string &path);
+
+	// Method used by compile to link types and variables
+	bool link();
+
+	bool generate(const std::string &outdir);
+
+private:
+
+	SVTNTCompiler			m_compiler;
 
 };
 

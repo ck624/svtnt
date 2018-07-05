@@ -1,4 +1,7 @@
 
+SVTNT_SCRIPTS_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
+SVTNT_DIR := $(abspath $(SVTNT_SCRIPTS_DIR)/..)
+
 PACKAGES_DIR := $(SVTNT_DIR)/packages
 
 BUILD_RESULT_DIR := $(BUILD_DIR)/result
@@ -55,7 +58,7 @@ ifeq (cl, $(COMPILER))
 else
 endif
 
-CXXFLAGS += $(foreach d,$(SRC_DIRS),-I $(d))
+CXXFLAGS += $(foreach d,$(SRC_DIRS),-I$(d))
 
 ifeq (cl,$(COMPILER))
 	CXX=cl
@@ -76,7 +79,8 @@ ifeq (0,$(GCC_VERSION_GE_7))
 endif
 
 	DLIBPREF := lib
-	CXXFLAGS += -std=c++11 -fPIC -g
+#	CXXFLAGS += -std=c++11 -fPIC -g
+	CXXFLAGS += -std=gnu++11 -fPIC -g
 	LINK_EXE=$(CXX) -o $@
 define LINK_DLIB
 	$(Q)$(CXX) -shared -o $@ $(filter %.o,$(^)) \

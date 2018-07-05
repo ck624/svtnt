@@ -3160,12 +3160,10 @@ signal_identifier :
   identifier
   ;
 
-ID : 
-  [a-zA-Z_][a-zA-Z0-9_$]* 
-  ;
+ID : [a-zA-Z_] [a-zA-Z0-9_$]* ;
 
 simple_identifier : 
-  ID 
+  ID | C_IDENTIFIER
   ;
   
 specparam_identifier: 

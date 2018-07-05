@@ -14,13 +14,15 @@ public:
 
 	virtual ~ChildItem();
 
-	virtual IScopeItem *getParent() const { return m_parent; }
+	virtual void setParent(IChildItem *p) override { m_parent = p; }
+
+	virtual IChildItem *getParent() const { return m_parent; }
 
 	virtual ItemType getType() const { return m_type; }
 
 private:
 	ItemType				m_type;
-	IScopeItem				*m_parent;
+	IChildItem				*m_parent;
 
 };
 

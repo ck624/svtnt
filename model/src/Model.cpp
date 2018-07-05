@@ -16,3 +16,6 @@ Model::~Model() {
 	// TODO Auto-generated destructor stub
 }
 
+void Model::accept(IModelVisitor *v) {
+	v->visit_model(this);
+}

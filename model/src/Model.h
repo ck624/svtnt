@@ -15,6 +15,8 @@ public:
 	Model();
 
 	virtual ~Model();
+
+	virtual void accept(IModelVisitor *v) override;
 };
 
 typedef shptr<Model> ModelH;

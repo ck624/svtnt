@@ -20,6 +20,8 @@ public:
 
 	virtual ~Package();
 
+	virtual void accept(IModelVisitor *v) override;
+
 };
 
 

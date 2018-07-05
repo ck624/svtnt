@@ -1,5 +1,5 @@
 
-SVTNT_APP_DIR = $(dir $(lastword $(MAKEFILE_LIST)))
+SVTNT_APP_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 
 ifneq (1,$(RULES))
 
@@ -20,5 +20,7 @@ $(PLATFORM_LIB_DIR)/$(DLIBPREF)svtnt$(DLIBEXT) : $(SVTNT_APP_SRC:.cpp=.o)
 $(PLATFORM_BIN_DIR)/svtnt$(EXEEXT) : svtnt_main.o $(SVTNT_APP_DEPS)
 	$(Q)if test ! -d `dirname $@`; then mkdir -p `dirname $@`; fi
 	$(Q)$(LINK_EXE)
+	
+-include $(SVTNT_APP_SRC:.cpp=.d)
 
 endif

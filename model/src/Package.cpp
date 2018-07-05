@@ -18,3 +18,7 @@ Package::~Package() {
 	// TODO Auto-generated destructor stub
 }
 
+void Package::accept(IModelVisitor *v) {
+	v->visit_package(this);
+}
+
