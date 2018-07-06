@@ -57,12 +57,18 @@ endif
 
 
 all :
-	$(Q)echo "PWD=$(PWD) SCRIPTS_DIR=$(SVTNT_SCRIPTS_DIR) UNPACK_TARGETS=$(UNPACK_TARGETS)"
 	$(Q)if test ! -d $(BUILD_DIR); then mkdir -p $(BUILD_DIR); fi
 	$(Q)$(MAKE) BUILD=true -j$(NUM_CORES) -C $(BUILD_DIR) -f $(SVTNT_TESTS_DIR)/Makefile __unpack 
 	$(Q)$(MAKE) BUILD=true -j$(NUM_CORES) -C $(BUILD_DIR) -f $(SVTNT_TESTS_DIR)/Makefile __build
 	$(Q)mkdir -p $(SVTNT_TESTS_DIR)/rundir
 	$(Q)cd $(SVTNT_TESTS_DIR)/rundir ; $(BUILD_DIR)/svtnt_tests$(EXEEXT) $(GTEST_ARGS)
+
+debug :
+	$(Q)if test ! -d $(BUILD_DIR); then mkdir -p $(BUILD_DIR); fi
+	$(Q)$(MAKE) BUILD=true -j$(NUM_CORES) -C $(BUILD_DIR) -f $(SVTNT_TESTS_DIR)/Makefile __unpack 
+	$(Q)$(MAKE) BUILD=true -j$(NUM_CORES) -C $(BUILD_DIR) -f $(SVTNT_TESTS_DIR)/Makefile __build
+	$(Q)mkdir -p $(SVTNT_TESTS_DIR)/rundir
+	$(Q)cd $(SVTNT_TESTS_DIR)/rundir ; gdb --args $(BUILD_DIR)/svtnt_tests$(EXEEXT) $(GTEST_ARGS)
 	
 clean :
 	$(Q)rm -f $(BUILD_DIR)/*.o $(BUILD_DIR)/*.d

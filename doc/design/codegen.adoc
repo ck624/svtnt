@@ -1,0 +1,23 @@
+
+= Code Generation
+
+The user's testbench is responsible for initializing and calling the generated code. 
+Calling the svtnt::init() function will perform static initialization for all packages and 
+classes. Once the model has been initialized, exported tasks or functions can be called.
+
+- svtnt.h - contains declarations for the svtnt::init() function and all 
+  exported tasks and functions. These APIs are called from the testbench
+  
+- svtnt.mk - contains the make rules needed to compile generated sources to either
+  an svtnt.o, svtnt.so, or svtnt.a file
+  
+- svtnt_unit.cpp/.h - Any content outside a package is generated to this file
+  
+- svtnt_<pkg>_<cls>.cpp/.h - Each class or struct type is generated to its own file set
+  - Note: any classes used inside the class instance must be forward-declared
+
+== Generated Code Structure
+
+- The non-class content of each structure is generated into a namespace with the same name as the 
+  SystemVerilog package inside a svtnt namespace. In other words, content for 'my_pkg' will be
+  placed in the svtnt::my_pkg namespace

@@ -27,7 +27,7 @@ bool SV2ModelVisitor::build(const ModelH &model, SystemVerilogParser::Source_tex
 		IChildItem *it = ctx->description(i)->accept(this);
 
 		if (it) {
-			model->addChild(it);
+			model->addChild(IChildItemH(it));
 		}
 	}
 
@@ -70,7 +70,7 @@ antlrcpp::Any SV2ModelVisitor::visitPackage_declaration(SystemVerilogParser::Pac
 		}
 
 		if (it) {
-			pkg->addChild(it);
+			pkg->addChild(IChildItemH(it));
 		}
 	}
 

@@ -9,6 +9,7 @@
 #define SVTNT_SRC_CODEGENVISITOR_H_
 #pragma once
 #include "ModelVisitorBase.h"
+#include "OutputMgr.h"
 #include <string>
 #include <vector>
 
@@ -25,8 +26,14 @@ public:
 
 private:
 	std::string					m_outdir;
+	OutputMgr					m_output;
 	std::vector<std::string>	m_packages;
 
+	OutputH						m_svtnt_h;
+	OutputH						m_svtnt_cpp;
+	OutputH						m_svtnt_mk;
+	OutputH						m_svtnt_unit_h;
+	OutputH						m_svtnt_unit_cpp;
 
 };
 

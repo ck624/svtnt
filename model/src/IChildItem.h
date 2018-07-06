@@ -6,9 +6,9 @@
  */
 
 #pragma once
-#include "shptr.h"
 #include "ItemType.h"
 #include "IModelVisitor.h"
+#include <memory>
 
 class IModelVisitor;
 class IChildItem {
@@ -26,5 +26,5 @@ public:
 
 };
 
-typedef shptr<IChildItem> IChildItemH;
+typedef std::shared_ptr<IChildItem> IChildItemH;
 
