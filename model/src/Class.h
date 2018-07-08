@@ -16,6 +16,6 @@ public:
 
 	virtual ~Class();
 
-	virtual void accept(IModelVisitor *v);
+	virtual void accept(IModelVisitor *v) override;
 };
 

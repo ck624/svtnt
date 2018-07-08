@@ -28,11 +28,11 @@ bool SVTNTCompiler::parse(std::istream &in, const std::string &path) {
 
 	CommonTokenStream tokens(&lexer);
 
-//	tokens.fill();
-//	for (uint32_t i=0; i<tokens.size(); i++) {
-//		Token *t = tokens.get(i);
-//		fprintf(stdout, "Token: %p %d %s\n", t, t->getType(), t->getText().c_str());
-//	}
+	tokens.fill();
+	for (uint32_t i=0; i<tokens.size(); i++) {
+		Token *t = tokens.get(i);
+		fprintf(stdout, "Token: %p %d %s\n", t, t->getType(), t->getText().c_str());
+	}
 
 	SystemVerilogParser parser(&tokens);
 

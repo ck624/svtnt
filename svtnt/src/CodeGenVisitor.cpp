@@ -76,6 +76,34 @@ bool CodeGenVisitor::generate(Model *m) {
 	return true;
 }
 
+void CodeGenVisitor::visit_class(Class *c) {
+	// TODO: find scope name
+	std::string basename = "svtnt_" + c->getName();
+	OutputH cls_h = m_output.open(basename + ".h");
+	OutputH cls_cpp = m_output.open(basename + ".cpp");
+
+	cls_h->println("namespace svtnt {");
+//	cls_h->println("namespace  {"); // TODO: package namespace
+
+	cls_h->inc_indent();
+	cls_h->print("%sclass %s ", cls_h->indent(), c->getName().c_str());
+	cls_h->print(" {\n");
+	cls_h->inc_indent();
+
+	// TODO: constructor
+
+	ModelVisitorBase::visit_class(c);
+
+	cls_h->dec_indent();
+	cls_h->println("};");
+	cls_h->dec_indent();
+//	cls_h->println("}"); // TODO: package namespace
+	cls_h->println("}"); // svtnt
+
+	m_output.close(basename + ".h");
+	m_output.close(basename + ".cpp");
+}
+
 void CodeGenVisitor::visit_package(Package *p) {
 	std::string basename = "svtnt_" + p->getName();
 
@@ -83,6 +111,10 @@ void CodeGenVisitor::visit_package(Package *p) {
 	OutputH pkg_cpp = m_output.open(basename + ".cpp");
 
 	m_packages.push_back(p->getName());
+
+	// Visit children
+	ModelVisitorBase::visit_package(p);
+
 	pkg_h->println("namespace svtnt {");
 	pkg_h->println("namespace %s {", p->getName().c_str());
 	pkg_h->inc_indent();

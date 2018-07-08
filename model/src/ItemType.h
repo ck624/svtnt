@@ -8,7 +8,11 @@
 
 enum ItemType {
 	TypeClass,
+	TypeDataType,
+	TypeMethodParam,
 	TypeModel,
-	TypePackage
+	TypePackage,
+	TypeStatement,
+	TypeTaskFunc
 };
 

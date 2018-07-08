@@ -22,6 +22,8 @@ public:
 
 	virtual bool generate(Model *m);
 
+	virtual void visit_class(Class *c) override;
+
 	virtual void visit_package(Package *p) override;
 
 private:

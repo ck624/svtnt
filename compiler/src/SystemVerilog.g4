@@ -247,14 +247,10 @@ ansi_port_declaration:
 //***********************************************************************
 
 elaboration_system_task:
-  '$fatal' ( '(' finish_number (',' list_of_arguments )? ')' )? ';'
+  '$fatal' ( '(' finish_number=expression (',' list_of_arguments )? ')' )? ';'
   | '$error' ( '(' ( list_of_arguments )? ')' )? ';'
   | '$warning' ( '(' ( list_of_arguments )? ')' )? ';'
   | '$info' ( '(' ( list_of_arguments )? ')' )? ';'
-  ;
-  
-finish_number: 
-  '0' | '1' | '2'
   ;
   
 module_common_item:
@@ -498,8 +494,16 @@ class_item:
   ;
   
 class_property:
+  class_data_property
+  | class_const_property
+  ;
+
+class_data_property:
   ( property_qualifier )* data_declaration
-  | 'const' ( class_item_qualifier )* data_type const_identifier ( '=' constant_expression )? ';'
+  ;
+
+class_const_property:
+  'const' ( class_item_qualifier )* data_type const_identifier ( '=' constant_expression )? ';'
   ;
   
 class_method:
@@ -721,9 +725,13 @@ ref_declaration:
 //* A.2.1.3 Type declarations
 //*******************************************************************
 data_declaration:
-  ( 'const' )? ( 'var' )? ( lifetime )? data_type_or_implicit list_of_variable_decl_assignments ';'
+  data_field_declaration
   | type_declaration
   | package_import_declaration net_type_declaration
+  ;
+  
+data_field_declaration:
+  ( 'const' )? ( 'var' )? ( lifetime )? data_type_or_implicit list_of_variable_decl_assignments ';'
   ;
   
 package_import_declaration:
@@ -780,21 +788,57 @@ casting_type:
   ;
   
 data_type:
-  integer_vector_type ( signing )? ( packed_dimension )*
-  | integer_atom_type ( signing )?
+  data_type_integer_vector
+  | data_type_integer_atom
   | non_integer_type
-  | struct_union ( 'packed' ( signing )? )? '{' struct_union_member ( struct_union_member )* '}' ( packed_dimension )*
-  | 'enum' ( enum_base_type )? '{' enum_name_declaration ( ',' enum_name_declaration )* '}' ( packed_dimension )*
-  | 'string'
-  | 'chandle'
-  | 'virtual' ( 'interface' )? interface_identifier ( parameter_value_assignment )? ( '.' modport_identifier )?
-  | ( class_scope | package_scope )? type_identifier ( packed_dimension )*
-  | class_type
-  | 'event'
+  | data_type_struct_union
+  | data_type_enum
+  | data_type_string
+  | data_type_chandle
+  | data_type_virtual
+  | data_type_user_defined
+  | data_type_event
   | ps_covergroup_identifier
   | type_reference
+  | class_type
+;
+
+data_type_integer_vector:
+  integer_vector_type ( signing )? ( packed_dimension )*
   ;
   
+data_type_integer_atom:
+  integer_atom_type ( signing )?
+  ;
+ 
+data_type_struct_union: 
+  struct_union ( 'packed' ( signing )? )? '{' struct_union_member ( struct_union_member )* '}' ( packed_dimension )*
+  ;
+
+data_type_enum:  
+  is_enum='enum' ( enum_base_type )? '{' enum_name_declaration ( ',' enum_name_declaration )* '}' ( packed_dimension )*
+  ;
+ 
+data_type_string: 
+  'string'
+  ;
+ 
+data_type_chandle: 
+  'chandle'
+  ;
+
+data_type_virtual: 
+  'virtual' ( 'interface' )? interface_identifier ( parameter_value_assignment )? ( '.' modport_identifier )?
+  ;
+
+data_type_user_defined:  
+  ( class_scope | package_scope )? type_identifier ( packed_dimension )*
+  ;
+
+data_type_event:
+  'event'
+  ;
+
 data_type_or_implicit:
   data_type
   | implicit_data_type
@@ -934,7 +978,7 @@ delay2:
   ;
   
 delay_value:
-  unsigned_number
+  UNSIGNED_NUMBER
   | real_number
   | ps_identifier
   | time_literal
@@ -1108,12 +1152,12 @@ function_declaration:
   
 function_body_declaration:
   function_data_type_or_implicit
-    ( interface_identifier '.' | class_scope )? function_identifier ';'
+    ( interface_identifier '.' | class_scope )? name=function_identifier ';'
     ( tf_item_declaration )*
     ( function_statement_or_null )*
     'endfunction' ( ':' function_identifier )?
   | function_data_type_or_implicit
-    ( interface_identifier '.' | class_scope )? function_identifier '(' ( tf_port_list )? ')' ';'
+    ( interface_identifier '.' | class_scope )? name=function_identifier '(' ( tf_port_list )? ')' ';'
     ( block_item_declaration )*
     ( function_statement_or_null )*
     'endfunction' ( ':' function_identifier )?
@@ -1159,11 +1203,11 @@ task_declaration:
   ;
   
 task_body_declaration:
-  ( interface_identifier '.' | class_scope )? task_identifier ';'
+  ( interface_identifier '.' | class_scope )? name=task_identifier ';'
     ( tf_item_declaration )*
     ( statement_or_null )*
     'endtask' ( ':' task_identifier )?
-  | ( interface_identifier '.' | class_scope )? task_identifier '(' ( tf_port_list )? ')' ';'
+  | ( interface_identifier '.' | class_scope )? name=task_identifier '(' ( tf_port_list )? ')' ';'
     ( block_item_declaration )*
     ( statement_or_null )*
     'endtask' ( ':' task_identifier )?
@@ -1177,7 +1221,8 @@ tf_item_declaration:
 tf_port_list:
   tf_port_item ( ',' tf_port_item )*
   ;
-  
+ 
+// TODO: Disallow completely-empty port items
 tf_port_item:
   ( attribute_instance )*
   ( tf_port_direction )? ( 'var' )? data_type_or_implicit
@@ -1842,11 +1887,15 @@ join_keyword:
 //*************************************************************************
 statement_or_null:
   statement
-  | ( attribute_instance )* ';'
+  | null_statement
   ;
   
 statement: 
   ( block_identifier ':' )? ( attribute_instance )* statement_item
+  ;
+  
+null_statement:
+  ( attribute_instance )* ';'
   ;
   
 statement_item:
@@ -2087,13 +2136,37 @@ assignment_pattern_variable_lvalue:
 //* A.6.8 Looping statements
 //*************************************************************************
 loop_statement:
+  loop_statement_forever
+  | loop_statement_repeat
+  | loop_statement_while
+  | loop_statement_for
+  | loop_statement_do_while
+  | loop_statement_foreach
+  ;
+  
+loop_statement_forever:
   'forever' statement_or_null
-  | 'repeat' '(' expression ')' statement_or_null
-  | 'while' '(' expression ')' statement_or_null
-  | 'for' '(' ( for_initialization )? ';' ( expression )? ';' ( for_step )? ')'
+  ;
+  
+loop_statement_repeat:
+  'repeat' '(' expression ')' statement_or_null
+  ;
+  
+loop_statement_while:
+  'while' '(' expression ')' statement_or_null
+  ;
+ 
+loop_statement_for:
+  'for' '(' ( for_initialization )? ';' ( expression )? ';' ( for_step )? ')'
     statement_or_null
-  | 'do' statement_or_null 'while' '(' expression ')' ';'
-  | 'foreach' '(' ps_or_hierarchical_array_identifier ( loop_variables )? ')' statement
+  ;
+  
+loop_statement_do_while:
+  'do' statement_or_null 'while' '(' expression ')' ';'
+  ;
+  
+loop_statement_foreach:
+  'foreach' '(' ps_or_hierarchical_array_identifier ( loop_variables )? ')' statement
   ;
 
 for_initialization:
@@ -2822,7 +2895,7 @@ primary_literal:
   ;
   
 time_literal:
-  unsigned_number time_unit
+  UNSIGNED_NUMBER time_unit
   | fixed_point_number time_unit
   ;
   
@@ -2842,7 +2915,7 @@ implicit_class_handle:
   ;
   
 bit_select: 
-  '{' ( expression )? '}'
+  ('[' ( expression )? ']')*
   ;
   
 select:
@@ -2929,44 +3002,33 @@ number:
   
 integral_number:
   decimal_number
-  | octal_number
-  | binary_number
-  | hex_number
+  | OCT_VALUE
+  | SIZED_OCT_VALUE
+  | BIN_VALUE
+  | SIZED_BIN_VALUE
+  | HEX_VALUE
+  | SIZED_HEX_VALUE
   ;
   
 decimal_number:
-  unsigned_number 
-  | ( size )? DECIMAL_BASE unsigned_number
-  | ( size )? DECIMAL_BASE X_DIGIT 
-  | ( size )? DECIMAL_BASE Z_DIGIT 
-  ;
-  
-binary_number: 
-  ( size )? BINARY_BASE binary_value
-  ;
-  
-octal_number: 
-  ( size )? OCTAL_BASE octal_value
-  ;
-  
-hex_number: 
-  ( size )? HEX_BASE hex_value
+  UNSIGNED_NUMBER 
+  | DEC_VALUE
+  | SIZED_DEC_VALUE
+//TODO:  | ( size )? DECIMAL_BASE X_DIGIT 
+//TODO:  | ( size )? DECIMAL_BASE Z_DIGIT 
   ;
   
 sign: 
   '+' | '-'
   ;
  
-SIZE: [1-9][0-9_]*;
-size: SIZE;
-  
 real_number:
   fixed_point_number
-  | unsigned_number ( '.' unsigned_number )? exp ( sign )? unsigned_number
+  | UNSIGNED_NUMBER ( '.' UNSIGNED_NUMBER )? exp ( sign )? UNSIGNED_NUMBER
   ;
   
 fixed_point_number: 
-  unsigned_number '.' unsigned_number
+  UNSIGNED_NUMBER '.' UNSIGNED_NUMBER
   ;
   
 exp: 
@@ -2974,22 +3036,17 @@ exp:
   ;
 
 UNSIGNED_NUMBER: [0-9][0-9_]*;
-unsigned_number: UNSIGNED_NUMBER ;
 
-BINARY_VALUE: [0-1xXzZ][0-1xXzZ_]*;
-binary_value: BINARY_VALUE;
+BIN_VALUE: ['][ \t\n\r]*[sS]?[bB][0-1xXzZ][0-1xXzZ_]*;
+SIZED_BIN_VALUE: [1-9][0-9_]*[ \t\n\r]*['][ \t\n\r]*[sS]?[bB][0-1xXzZ][0-1xXzZ_]*;
+OCT_VALUE: ['][ \t\n\r]*[sS]?[oO][0-7xXzZ][0-7xXzZ_]*;
+SIZED_OCT_VALUE: [1-9][0-9_]*[ \t\n\r]*['][ \t\n\r]*[sS]?[oO][0-7xXzZ][0-7xXzZ_]*;
+HEX_VALUE: ['][ \t\n\r]*[sS]?[hH][0-9a-fA-FxXzZ][0-9a-fA-FxXzZ_]*;
+SIZED_HEX_VALUE: [1-9][0-9_]*[ \t\n\r]*['][ \t\n\r]*[sS]?[hH][0-9a-fA-FxXzZ][0-9a-fA-FxXzZ_]*;
+DEC_VALUE: ['][ \t\n\r]*[sS]?[dD][0-9][0-9_]*;
+SIZED_DEC_VALUE: [1-9][0-9_]*[ \t\n\r]*['][ \t\n\r]*[sS]?[dD][0-9][0-9_]*;
 
-OCTAL_VALUE: [0-7xXzZ][0-7xXzZ_]*;
-octal_value: OCTAL_VALUE;
-
-HEX_VALUE: [0-9a-fA-FxXzZ][0-9a-fA-FxXzZ_]*;
-hex_value: HEX_VALUE;
-
-DECIMAL_BASE: ['][sS][dD];
-BINARY_BASE: ['][sS][bB];
-OCTAL_BASE: ['][sS][oO];
-HEX_BASE: ['][sS][hH];
-NON_ZERO_DECIMAL_DIGIT: [1-9];
+// NON_ZERO_DECIMAL_DIGIT: [1-9];
 //decimal_digit ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 //binary_digit ::= x_digit | z_digit | 0 | 1
 //octal_digit ::= x_digit | z_digit | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
