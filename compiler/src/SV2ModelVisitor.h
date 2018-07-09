@@ -8,6 +8,7 @@
 #pragma once
 #include "SystemVerilogBaseVisitor.h"
 #include "Model.h"
+#include <typeinfo>
 
 class SV2ModelVisitor : public virtual SystemVerilogBaseVisitor {
 public:
@@ -18,6 +19,8 @@ public:
 	virtual bool build(const ModelH &model, SystemVerilogParser::Source_textContext *ctx);
 
     virtual antlrcpp::Any visitClass_declaration(SystemVerilogParser::Class_declarationContext *ctx) override;
+
+    virtual antlrcpp::Any visitInterface_class_declaration(SystemVerilogParser::Interface_class_declarationContext *ctx) override;
 
     virtual antlrcpp::Any visitPackage_declaration(SystemVerilogParser::Package_declarationContext *ctx) override;
 
@@ -67,11 +70,50 @@ public:
 
     antlrcpp::Any visitStatement(SystemVerilogParser::StatementContext *ctx) override;
 
+    antlrcpp::Any visitSubroutine_call_statement(SystemVerilogParser::Subroutine_call_statementContext *ctx) override;
+
+    antlrcpp::Any visitLoop_statement_for(SystemVerilogParser::Loop_statement_forContext *ctx) override;
+
+    antlrcpp::Any visitFor_variable_declaration(SystemVerilogParser::For_variable_declarationContext *ctx) override;
+
     antlrcpp::Any visitNull_statement(SystemVerilogParser::Null_statementContext *ctx) override;
 
     antlrcpp::Any visitSeq_block(SystemVerilogParser::Seq_blockContext *ctx) override;
 
+    antlrcpp::Any visitString_literal(SystemVerilogParser::String_literalContext *ctx) override;
+
+    antlrcpp::Any visitIntegral_number(SystemVerilogParser::Integral_numberContext *ctx) override;
+
+    antlrcpp::Any visitPrimary_var_ref(SystemVerilogParser::Primary_var_refContext *ctx) override;
+
+    antlrcpp::Any visitVariable_lvalue(SystemVerilogParser::Variable_lvalueContext *ctx) override;
+
+    antlrcpp::Any visitInc_or_dec_expression(SystemVerilogParser::Inc_or_dec_expressionContext *ctx) override;
+
+    antlrcpp::Any visitExpression(SystemVerilogParser::ExpressionContext *ctx) override;
+
+    antlrcpp::Any visitFunction_subroutine_call(SystemVerilogParser::Function_subroutine_callContext *ctx) override;
+
+    antlrcpp::Any visitHierarchical_identifier(SystemVerilogParser::Hierarchical_identifierContext *ctx) override;
+
 protected:
+
+    template <class A, class B=A> A *safe_accept(
+    		antlr4::ParserRuleContext *c,
+			const std::string &hint) {
+    	A *ret = 0;
+    	try {
+    		B *it = c->accept(this);
+    		ret = dynamic_cast<A *>(it);
+    	} catch (std::bad_cast &e) {
+    		error("Failed to cast %s to %s (%s)",
+    				hint.c_str(),
+					typeid(B).name(),
+					c->getText().c_str());
+    	}
+
+    	return ret;
+    }
 
     void enter(const char *fmt, ...);
 

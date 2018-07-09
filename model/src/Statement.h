@@ -7,6 +7,7 @@
 
 #pragma once
 #include "ChildItem.h"
+#include <memory>
 
 class Statement : public ChildItem {
 public:
@@ -22,3 +23,4 @@ private:
 	std::string				m_block_id;
 };
 
+typedef std::shared_ptr<Statement> StatementH;

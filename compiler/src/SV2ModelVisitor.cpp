@@ -12,6 +12,14 @@
 #include "Package.h"
 #include "Statement.h"
 #include "StatementBlock.h"
+#include "StatementExpr.h"
+#include "StatementFor.h"
+#include "Expr.h"
+#include "ExprIncDec.h"
+#include "ExprVarElemRef.h"
+#include "ExprVarRef.h"
+#include "StatementVarDecl.h"
+#include "StatementVarDeclItem.h"
 #include <stdio.h>
 
 SV2ModelVisitor::SV2ModelVisitor() : m_model(0) {
@@ -72,6 +80,15 @@ antlrcpp::Any SV2ModelVisitor::visitClass_declaration(SystemVerilogParser::Class
 	}
 
 	leave("visitClass_declaration %s", ctx->name->getText().c_str());
+
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitInterface_class_declaration(SystemVerilogParser::Interface_class_declarationContext *ctx) {
+	IChildItem *ret = 0;
+	enter("visitInterface_class_declaration");
+	todo("visitInterface_class_declaration");
+	leave("visitInterface_class_declaration");
 
 	return ret;
 }
@@ -553,6 +570,266 @@ antlrcpp::Any SV2ModelVisitor::visitSeq_block(SystemVerilogParser::Seq_blockCont
 	leave("visitSeq_block");
 
 	ret = block;
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitSubroutine_call_statement(SystemVerilogParser::Subroutine_call_statementContext *ctx) {
+	IChildItem *ret = 0;
+
+	enter("visitSubroutine_call_statement");
+	Expr *expr = 0;
+
+	try {
+		if (ctx->subroutine_call()) {
+			expr = ctx->subroutine_call()->accept(this);
+		} else {
+			expr = ctx->function_subroutine_call()->accept(this);
+		}
+	} catch (std::bad_cast &e) {
+		error("Failed to cast subroutine_call to expression (%s)",
+				ctx->getText().c_str());
+	}
+	todo("visitSubroutine_call_statement");
+	leave("visitSubroutine_call_statement");
+
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitLoop_statement_for(SystemVerilogParser::Loop_statement_forContext *ctx) {
+	IChildItem *ret = 0;
+	std::vector<StatementH> init;
+	Expr *cond = 0;
+	std::vector<StatementH> step;
+	Statement *stmt = 0;
+
+	enter("visitLoop_statement_for");
+	if (ctx->for_initialization()) {
+		if (ctx->for_initialization()->list_of_variable_assignments()) {
+			SystemVerilogParser::List_of_variable_assignmentsContext *as =
+					ctx->for_initialization()->list_of_variable_assignments();
+			for (uint32_t i=0; i<as->variable_assignment().size(); i++) {
+				Statement *init_s = 0;
+
+				try {
+					IChildItem *c = as->variable_assignment(i)->accept(this);
+					init_s = dynamic_cast<Statement *>(c);
+				} catch (std::bad_cast &e) {
+					error("Failed to cast variable_assignment to IChildItem");
+				}
+
+				if (init_s) {
+					init.push_back(StatementH(init_s));
+				}
+			}
+		} else {
+			for (uint32_t i=0; i<ctx->for_initialization()->for_variable_declaration().size(); i++) {
+				Statement *decl = 0;
+				try {
+					IChildItem *c = ctx->for_initialization()->for_variable_declaration(i)->accept(this);
+					decl = dynamic_cast<Statement *>(c);
+				} catch (std::bad_cast &e) {
+					error("Failed to cast for_variable_declaration to IChildItem");
+				}
+
+				if (decl) {
+					init.push_back(StatementH(decl));
+				}
+			}
+		}
+	}
+
+	if (ctx->for_step()) {
+		for (uint32_t i=0; i<ctx->for_step()->for_step_assignment().size(); i++) {
+			Expr *expr = safe_accept<Expr>(ctx->for_step()->for_step_assignment(i), "for expression");
+			// TODO: StatementExpr
+			step.push_back(StatementH(new StatementExpr(ExprH(expr))));
+		}
+	}
+
+	leave("visitLoop_statement_for");
+
+	ret = new StatementFor(init, ExprH(cond), step, StatementH(stmt));
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitFor_variable_declaration(SystemVerilogParser::For_variable_declarationContext *ctx) {
+	IChildItem *ret = 0;
+	DataType *data_type = 0;
+
+	enter("visitFor_variable_declaration");
+	data_type = safe_accept<DataType,IChildItem>(ctx->data_type(), "data_type");
+
+	StatementVarDecl *decl = new StatementVarDecl(DataTypeH(data_type));
+
+	for (uint32_t i=0; i<ctx->variable_identifier().size(); i++) {
+		Expr *expr = safe_accept<Expr>(ctx->expression(i), "variable initializer");
+		StatementVarDeclItem *it = new StatementVarDeclItem(
+				ctx->variable_identifier(i)->getText(), ExprH(expr));
+		decl->addChild(IChildItemH(it));
+	}
+
+	leave("visitFor_variable_declaration");
+
+	ret = decl;
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitString_literal(SystemVerilogParser::String_literalContext *ctx) {
+	Expr *ret = 0;
+
+	enter("visitString_literal");
+
+	leave("visitString_literal");
+
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitIntegral_number(SystemVerilogParser::Integral_numberContext *ctx) {
+	Expr *ret = 0;
+
+	enter("visitIntegral_number");
+	leave("visitIntegral_number");
+
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitPrimary_var_ref(SystemVerilogParser::Primary_var_refContext *ctx) {
+	Expr *ret = 0;
+
+	enter("visitPrimary_var_ref");
+	ExprVarRef *href = 0;
+	try {
+		Expr *href_e = ctx->hierarchical_identifier()->accept(this);
+		href = dynamic_cast<ExprVarRef *>(href_e);
+	} catch (std::bad_cast &e) {
+		error("Failed to cast hierarchical identifier");
+	}
+
+	if (ctx->class_qualifier() || ctx->package_scope()) {
+		// Should set
+		todo("support class-qualified variable ref");
+	}
+
+	// TODO: need to deal with the optional post-select
+
+	leave("visitPrimary_var_ref");
+
+	ret = href;
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitVariable_lvalue(SystemVerilogParser::Variable_lvalueContext *ctx) {
+	Expr *ret = 0;
+
+	enter("visitVariable_lvalue");
+
+	if (ctx->hierarchical_variable_identifier()) {
+		ret = safe_accept<Expr>(ctx->hierarchical_variable_identifier(), "hierarchical_variable_identifier variable_lvalue");
+	} else {
+		todo("unhandled variable_lvalue %s", ctx->getText().c_str());
+	}
+
+	leave("visitVariable_lvalue");
+
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitInc_or_dec_expression(SystemVerilogParser::Inc_or_dec_expressionContext *ctx) {
+	Expr *ret = 0;
+	enter("visitInc_or_dec_expression");
+	bool is_suffix = ctx->is_suffix;
+	bool is_inc = (ctx->inc_or_dec_operator()->getText() == "++");
+
+	Expr *target = safe_accept<Expr>(ctx->variable_lvalue(), "inc_or_dec lvalue");
+
+	ret = new ExprIncDec(ExprH(target), is_suffix, is_inc);
+
+	leave("visitInc_or_dec_expression");
+
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitExpression(SystemVerilogParser::ExpressionContext *ctx) {
+	Expr *ret = 0;
+	Expr *lhs = 0, *rhs = 0;
+	enter("visitExpression");
+
+	if (ctx->lhs) {
+		try {
+			lhs = ctx->lhs->accept(this);
+		} catch (std::bad_cast &e) {
+			error("Expression lhs is not an Expr (%s)",
+					ctx->lhs->getText().c_str());
+		}
+	}
+
+	if (ctx->rhs) {
+		try {
+			rhs = ctx->rhs->accept(this);
+		} catch (std::bad_cast &e) {
+			error("Expression rhs is not an Expr (%s)",
+					ctx->rhs->getText().c_str());
+		}
+	}
+
+	if (ctx->exp_op() || ctx->mul_div_mod_op() || ctx->add_sub_op() ||
+			ctx->shift_op() || ctx->logical_inequality_op() || ctx->eq_neq_op() ||
+			ctx->binary_and_op() || ctx->binary_xor_op() || ctx->binary_or_op() ||
+			ctx->logical_and_op() || ctx->logical_or_op()) {
+		// Binary expression
+
+	} else if (ctx->unary_operator()) {
+	} else if (ctx->inc_or_dec_expression()) {
+	} else if (ctx->operator_assignment()) {
+		// paren
+	} else if (ctx->tagged_union_expression()) {
+	} else if (ctx->inside_expression()) {
+	} else if (ctx->conditional_expression()) {
+	} else if (ctx->primary()) {
+		try {
+			ret = ctx->primary()->accept(this);
+		} catch (std::bad_cast &e) {
+			error("primary is not an Expr (%s)", ctx->primary()->getText().c_str());
+		}
+	}
+
+	leave("visitExpression");
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitFunction_subroutine_call(SystemVerilogParser::Function_subroutine_callContext *ctx) {
+	Expr *ret = 0;
+	enter("visitFunction_subroutine_call");
+	todo("visitFunction_subroutine_call");
+	leave("visitFunction_subroutine_call");
+
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitHierarchical_identifier(SystemVerilogParser::Hierarchical_identifierContext *ctx) {
+	Expr *ret = 0;
+	std::vector<ExprVarElemRefH> path;
+
+	enter("visitHierarchical_identifier (%s)", ctx->getText().c_str());
+
+	for (uint32_t i=0; i<ctx->identifier().size(); i++) {
+		Expr *left=0, *right=0;
+
+		// TODO: deal with indexed expressions
+		if (i<ctx->constant_bit_select().size()) {
+
+		}
+
+		ExprVarElemRef *ref = new ExprVarElemRef(
+				ctx->identifier(i)->getText(),
+				ExprH(left),
+				ExprH(right));
+		path.push_back(ExprVarElemRefH(ref));
+	}
+
+	leave("visitHierarchical_identifier");
+
+	ret = new ExprVarRef(path);
 	return ret;
 }
 

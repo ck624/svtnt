@@ -1904,7 +1904,7 @@ statement_item:
   | procedural_continuous_assignment ';'
   | case_statement
   | conditional_statement
-  | inc_or_dec_expression ';'
+  | inc_or_dec_statement
   | subroutine_call_statement
   | disable_statement
   | event_trigger
@@ -1923,6 +1923,10 @@ statement_item:
   
 function_statement: 
   statement
+  ;
+  
+inc_or_dec_statement:
+  inc_or_dec_expression ';'
   ;
 
 function_statement_or_null:
@@ -2726,12 +2730,13 @@ array_method_name:
 //* A.8.3 Expressions
 //*************************************************************************
 inc_or_dec_expression:
-  inc_or_dec_operator ( attribute_instance )* variable_lvalue
+  is_suffix=inc_or_dec_operator ( attribute_instance )* variable_lvalue
   | variable_lvalue ( attribute_instance )* inc_or_dec_operator
   ;
   
 conditional_expression: 
-  cond_predicate '?' ( attribute_instance )* expression ':' expression
+//TODO: Refactor to replace cond_predicate with expression cond_predicate '?' ( attribute_instance )* expression ':' expression
+  '?' ( attribute_instance )* true_expr=expression ':' false_expr=expression
   ;
   
 constant_expression:
@@ -2774,22 +2779,50 @@ constant_indexed_range:
   ;
   
 expression:
-  primary
   | unary_operator ( attribute_instance )* primary
   | inc_or_dec_expression
   | '(' operator_assignment ')'
-  | expression binary_operator ( attribute_instance )* expression
-//TODO: LR  | conditional_expression
-//TODO: LR  | inside_expression
+//  | expression binary_operator ( attribute_instance )* expression
   | tagged_union_expression
+  | lhs=expression exp_op ( attribute_instance )* rhs=expression
+  | lhs=expression mul_div_mod_op ( attribute_instance )* rhs=expression
+  | lhs=expression add_sub_op ( attribute_instance )* rhs=expression
+  | lhs=expression shift_op ( attribute_instance )* rhs=expression
+  | lhs=expression inside_expression
+  | lhs=expression logical_inequality_op ( attribute_instance )* rhs=expression
+  | lhs=expression eq_neq_op ( attribute_instance )* rhs=expression
+  | lhs=expression binary_and_op ( attribute_instance )* rhs=expression
+  | lhs=expression binary_xor_op ( attribute_instance )* rhs=expression
+  | lhs=expression binary_or_op ( attribute_instance )* rhs=expression
+  | lhs=expression logical_and_op ( attribute_instance )* rhs=expression
+  | lhs=expression logical_or_op ( attribute_instance )* rhs=expression
+  | lhs=expression conditional_expression
+  | primary
   ;
+  
+logical_or_op : '||';
+logical_and_op : '&&';
+binary_or_op : '|';
+binary_xor_op : '^';
+binary_and_op : '&';  
+
+logical_inequality_op:
+  '<'|'<='|'>'|'>='
+  ;
+  
+exp_op: '**';
+
+eq_neq_op: '==' | '!=';
+shift_op: '<<' | '>>';
+add_sub_op: '+' | '-';
+mul_div_mod_op: '*' | '/' | '%';
   
 tagged_union_expression:
   'tagged' member_identifier ( expression )?
   ;
   
 inside_expression: 
-  expression 'inside' '{' open_range_list '}'
+  'inside' '{' open_range_list '}'
   ;
   
 value_range:
@@ -2862,7 +2895,7 @@ module_path_primary:
   
 primary:
   primary_literal
-  | ( class_qualifier | package_scope )? hierarchical_identifier select
+  | primary_var_ref
   | empty_queue
   | concatenation ( '[' range_expression ']' )?
   | multiple_concatenation ( '[' range_expression ']' )?
@@ -2878,8 +2911,13 @@ primary:
   | 'null'
   ; 
   
+primary_var_ref:
+  ( class_qualifier | package_scope )? hierarchical_identifier select
+  ;
+  
 class_qualifier: 
-  ( 'local' '::' )? ( implicit_class_handle '.' | class_scope )?
+  is_local='local' '::' ( implicit_class_handle '.' | class_scope )?
+  | implicit_class_handle '.' | class_scope 
   ;
   
 range_expression:
@@ -2890,7 +2928,7 @@ range_expression:
 primary_literal: 
   number 
   | time_literal 
-  | UNBASED_UNSIZED_LITERAL 
+  | unbased_unsized_literal 
   | string_literal
   ;
   
@@ -3053,6 +3091,11 @@ SIZED_DEC_VALUE: [1-9][0-9_]*[ \t\n\r]*['][ \t\n\r]*[sS]?[dD][0-9][0-9_]*;
 //hex_digit ::= x_digit | z_digit | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | a | b | c | d | e | f | A | B | C | D | E | F
 X_DIGIT: [xX][xX_]*;
 Z_DIGIT: [zZ?][zZ?]*;
+
+unbased_unsized_literal:
+  UNBASED_UNSIZED_LITERAL
+  ;
+  
 UNBASED_UNSIZED_LITERAL: ['][01zZxX];
 
 //***********************************************************************
@@ -3117,7 +3160,11 @@ genvar_identifier: identifier;
 hierarchical_array_identifier: hierarchical_identifier;
 hierarchical_block_identifier: hierarchical_identifier;
 hierarchical_event_identifier: hierarchical_identifier;
-hierarchical_identifier: ( '$root' '.' )? ( identifier constant_bit_select '.' )* identifier;
+
+hierarchical_identifier: 
+  ( '$root' '.' )? ( identifier constant_bit_select '.' )* identifier
+  ;
+  
 hierarchical_net_identifier: hierarchical_identifier;
 hierarchical_parameter_identifier: hierarchical_identifier;
 hierarchical_property_identifier: hierarchical_identifier;
