@@ -13,6 +13,11 @@
 
 class ExprVarElemRef {
 public:
+
+	ExprVarElemRef(
+			const std::string	&id
+			);
+
 	ExprVarElemRef(
 			const std::string	&id,
 			const ExprH			&left,

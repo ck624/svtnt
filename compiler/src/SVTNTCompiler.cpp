@@ -9,6 +9,7 @@
 #include "SV2ModelVisitor.h"
 #include "SystemVerilogParser.h"
 #include "SystemVerilogLexer.h"
+#include "ResolveReferencesVisitor.h"
 
 using namespace antlr4;
 
@@ -48,6 +49,10 @@ bool SVTNTCompiler::parse(std::istream &in, const std::string &path) {
 }
 
 bool SVTNTCompiler::link() {
+	ResolveReferencesVisitor refs_visitor;
+
+	refs_visitor.resolve_refs(m_model);
+
 	// TODO:
 	return true;
 }

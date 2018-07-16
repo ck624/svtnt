@@ -9,17 +9,26 @@
 #include "TaskFunction.h"
 #include "MethodParam.h"
 #include "DataTypeIntegerAtom.h"
+#include "DataTypeString.h"
 #include "Package.h"
+#include "ChildItem.h"
 #include "Statement.h"
 #include "StatementBlock.h"
 #include "StatementExpr.h"
 #include "StatementFor.h"
 #include "Expr.h"
 #include "ExprIncDec.h"
+#include "ExprTFCall.h"
 #include "ExprVarElemRef.h"
 #include "ExprVarRef.h"
+#include "ExprPsHierRef.h"
 #include "StatementVarDecl.h"
 #include "StatementVarDeclItem.h"
+#include "ImportTaskFunction.h"
+#include "TaskFunction.h"
+#include "TaskFunctionProto.h"
+#include "TFCallArgList.h"
+#include "TFCallArg.h"
 #include <stdio.h>
 
 SV2ModelVisitor::SV2ModelVisitor() : m_model(0) {
@@ -100,13 +109,7 @@ antlrcpp::Any SV2ModelVisitor::visitPackage_declaration(SystemVerilogParser::Pac
 	Package *pkg = new Package(ctx->name->getText());
 
 	for (uint32_t i=0; i<ctx->package_item().size(); i++) {
-		IChildItem *it = 0;
-
-		try {
-			it = ctx->package_item(i)->accept(this);
-		} catch (std::bad_cast &e) {
-			error("Failed to cast package item to IChildItem");
-		}
+		IChildItem *it = safe_accept<IChildItem>(ctx->package_item(i), "package item");
 
 		if (it) {
 			pkg->addChild(IChildItemH(it));
@@ -123,7 +126,8 @@ antlrcpp::Any SV2ModelVisitor::visitFunction_declaration(SystemVerilogParser::Fu
 	enter("visitFunction_declaration");
 	std::vector<MethodParamH> params;
 	SystemVerilogParser::Function_body_declarationContext *body = ctx->function_body_declaration();
-	TaskFunction *tf = new TaskFunction(body->name->getText(), true);
+	TaskFunctionProto *proto = new TaskFunctionProto(body->name->getText(), true);
+	TaskFunction *tf = new TaskFunction(TaskFunctionProtoH(proto));
 
 	if (body->class_scope()) {
 		todo("handle class-external functions");
@@ -178,7 +182,7 @@ antlrcpp::Any SV2ModelVisitor::visitFunction_declaration(SystemVerilogParser::Fu
 		todo("handle old ANSI-style functions");
 	}
 
-	tf->setParameters(params);
+	proto->setParameters(params);
 
 	leave("visitFunction_declaration");
 
@@ -190,7 +194,8 @@ antlrcpp::Any SV2ModelVisitor::visitTask_declaration(SystemVerilogParser::Task_d
 	IChildItem *ret = 0;
 	std::vector<MethodParamH> params;
 	SystemVerilogParser::Task_body_declarationContext *body = ctx->task_body_declaration();
-	TaskFunction *tf = new TaskFunction(body->name->getText(), false);
+	TaskFunctionProto *proto = new TaskFunctionProto(body->name->getText(), false);
+	TaskFunction *tf = new TaskFunction(TaskFunctionProtoH(proto));
 
 	enter("visitTask_declaration %s", body->name->getText().c_str());
 
@@ -250,7 +255,7 @@ antlrcpp::Any SV2ModelVisitor::visitTask_declaration(SystemVerilogParser::Task_d
 		todo("Handle Verilog-style tasks");
 	}
 
-	tf->setParameters(params);
+	proto->setParameters(params);
 	leave("visitTask_declaration");
 
 	ret = tf;
@@ -299,6 +304,72 @@ antlrcpp::Any SV2ModelVisitor::visitTf_port_item(SystemVerilogParser::Tf_port_it
 
 	leave("visitTf_port_item");
 	ret = p;
+	return ret;
+}
+
+
+antlrcpp::Any SV2ModelVisitor::visitFunction_prototype(SystemVerilogParser::Function_prototypeContext *ctx) {
+	IChildItem *ret = 0;
+
+	enter("visitFunction_prototype");
+
+	TaskFunctionProto *proto = new TaskFunctionProto(
+			ctx->function_identifier()->getText(), true);
+
+	std::vector<MethodParamH> params;
+
+	if (ctx->tf_port_list()) {
+
+		MethodParam::Dir last_dir = MethodParam::DirIn;
+		for (uint32_t i=0; i<ctx->tf_port_list()->tf_port_item().size(); i++) {
+			MethodParam *p = 0;
+			p = child_accept<MethodParam>(
+					ctx->tf_port_list()->tf_port_item(i),
+					"method parameter");
+			if (p->getDir() == MethodParam::DirNone) {
+				p->setDir(last_dir);
+			} else {
+				last_dir = p->getDir();
+			}
+			params.push_back(MethodParamH(p));
+		}
+	}
+
+	if (ctx->tf_port_list()->is_variadic) {
+		proto->setIsVariadic();
+	}
+
+	proto->setParameters(params);
+
+	leave("visitFunction_prototype");
+
+	ret = proto;
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitDpi_import_function(SystemVerilogParser::Dpi_import_functionContext *ctx) {
+	IChildItem *ret = 0;
+
+	enter("visitDpi_import_function");
+	TaskFunctionProtoH proto(child_accept<TaskFunctionProto>(
+			ctx->dpi_function_proto(), "dpi function prototype"));
+	ImportTaskFunction *import = new ImportTaskFunction(proto);
+
+	if (ctx->dpi_spec_string()->getText() == "SVTNT") {
+		import->setIsSVTNT();
+	}
+
+	if (ctx->dpi_function_import_property()) {
+		todo("handle pure/context for dpi import");
+	}
+
+	if (ctx->c_identifier()) {
+		import->setCIdentifier(ctx->c_identifier()->getText());
+	}
+
+	leave("visitDpi_import_function");
+
+	ret = import;
 	return ret;
 }
 
@@ -375,7 +446,9 @@ antlrcpp::Any SV2ModelVisitor::visitData_type_enum(SystemVerilogParser::Data_typ
 antlrcpp::Any SV2ModelVisitor::visitData_type_string(SystemVerilogParser::Data_type_stringContext *ctx) {
 	IChildItem *ret = 0;
 	enter("visitData_type_string");
-	todo("visitData_type_string");
+
+	ret = new DataTypeString();
+
 	leave("visitData_type_string");
 
 	return ret;
@@ -573,23 +646,23 @@ antlrcpp::Any SV2ModelVisitor::visitSeq_block(SystemVerilogParser::Seq_blockCont
 	return ret;
 }
 
+/**
+ * A subroutine_call_statement is only used in a statement context.
+ * The TF elements below it are expressions
+ */
 antlrcpp::Any SV2ModelVisitor::visitSubroutine_call_statement(SystemVerilogParser::Subroutine_call_statementContext *ctx) {
 	IChildItem *ret = 0;
+	Expr *call_expr = 0;
 
 	enter("visitSubroutine_call_statement");
-	Expr *expr = 0;
 
-	try {
-		if (ctx->subroutine_call()) {
-			expr = ctx->subroutine_call()->accept(this);
-		} else {
-			expr = ctx->function_subroutine_call()->accept(this);
-		}
-	} catch (std::bad_cast &e) {
-		error("Failed to cast subroutine_call to expression (%s)",
-				ctx->getText().c_str());
+	if (ctx->subroutine_call()) {
+		call_expr = expr_accept(ctx->subroutine_call(), "subroutine_call");
+	} else {
+		call_expr = expr_accept(ctx->function_subroutine_call(), "function_subroutine_call");
 	}
-	todo("visitSubroutine_call_statement");
+
+	ret = new StatementExpr(ExprH(call_expr));
 	leave("visitSubroutine_call_statement");
 
 	return ret;
@@ -640,11 +713,14 @@ antlrcpp::Any SV2ModelVisitor::visitLoop_statement_for(SystemVerilogParser::Loop
 
 	if (ctx->for_step()) {
 		for (uint32_t i=0; i<ctx->for_step()->for_step_assignment().size(); i++) {
-			Expr *expr = safe_accept<Expr>(ctx->for_step()->for_step_assignment(i), "for expression");
+			Expr *expr = safe_accept2<Expr,Expr>(
+					ctx->for_step()->for_step_assignment(i), "for expression");
 			// TODO: StatementExpr
 			step.push_back(StatementH(new StatementExpr(ExprH(expr))));
 		}
 	}
+
+	stmt = safe_accept2<Statement,IChildItem>(ctx->statement_or_null(), "for loop statement");
 
 	leave("visitLoop_statement_for");
 
@@ -657,12 +733,12 @@ antlrcpp::Any SV2ModelVisitor::visitFor_variable_declaration(SystemVerilogParser
 	DataType *data_type = 0;
 
 	enter("visitFor_variable_declaration");
-	data_type = safe_accept<DataType,IChildItem>(ctx->data_type(), "data_type");
+	data_type = safe_accept2<DataType,IChildItem>(ctx->data_type(), "data_type");
 
 	StatementVarDecl *decl = new StatementVarDecl(DataTypeH(data_type));
 
 	for (uint32_t i=0; i<ctx->variable_identifier().size(); i++) {
-		Expr *expr = safe_accept<Expr>(ctx->expression(i), "variable initializer");
+		Expr *expr = safe_accept2<Expr>(ctx->expression(i), "variable initializer");
 		StatementVarDeclItem *it = new StatementVarDeclItem(
 				ctx->variable_identifier(i)->getText(), ExprH(expr));
 		decl->addChild(IChildItemH(it));
@@ -724,7 +800,7 @@ antlrcpp::Any SV2ModelVisitor::visitVariable_lvalue(SystemVerilogParser::Variabl
 	enter("visitVariable_lvalue");
 
 	if (ctx->hierarchical_variable_identifier()) {
-		ret = safe_accept<Expr>(ctx->hierarchical_variable_identifier(), "hierarchical_variable_identifier variable_lvalue");
+		ret = safe_accept2<Expr>(ctx->hierarchical_variable_identifier(), "hierarchical_variable_identifier variable_lvalue");
 	} else {
 		todo("unhandled variable_lvalue %s", ctx->getText().c_str());
 	}
@@ -740,7 +816,7 @@ antlrcpp::Any SV2ModelVisitor::visitInc_or_dec_expression(SystemVerilogParser::I
 	bool is_suffix = ctx->is_suffix;
 	bool is_inc = (ctx->inc_or_dec_operator()->getText() == "++");
 
-	Expr *target = safe_accept<Expr>(ctx->variable_lvalue(), "inc_or_dec lvalue");
+	Expr *target = safe_accept2<Expr>(ctx->variable_lvalue(), "inc_or_dec lvalue");
 
 	ret = new ExprIncDec(ExprH(target), is_suffix, is_inc);
 
@@ -806,6 +882,103 @@ antlrcpp::Any SV2ModelVisitor::visitFunction_subroutine_call(SystemVerilogParser
 	return ret;
 }
 
+/**
+ * A tf_call is still a legal expression element
+ */
+antlrcpp::Any SV2ModelVisitor::visitSystem_tf_call(SystemVerilogParser::System_tf_callContext *ctx) {
+	Expr *ret = 0;
+	TFCallArgList *call_args = 0;
+	ExprPsHierRef *tf_ref = 0;
+
+	enter("visitSystem_tf_call");
+	if (ctx->is_type_call) {
+		todo("System Tasks accepting types are not supported");
+	} else {
+		std::vector<ExprVarElemRefH> path;
+		path.push_back(ExprVarElemRefH(new ExprVarElemRef(
+				ctx->system_tf_identifier()->getText())));
+		tf_ref = new ExprPsHierRef(false, path);
+
+		if (ctx->list_of_arguments()) {
+			call_args = child_accept<TFCallArgList>(
+					ctx->list_of_arguments(), "List of arguments");
+		} else {
+			call_args = new TFCallArgList();
+		}
+	}
+
+	ret = new ExprTFCall(ExprPsHierRefH(tf_ref), TFCallArgListH(call_args));
+
+	leave("visitSystem_tf_call");
+
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitTf_call(SystemVerilogParser::Tf_callContext *ctx) {
+	Expr *ret = 0;
+
+	enter("visitTf_call");
+	ExprPsHierRef *tf_id = expr_accept<ExprPsHierRef>(
+			ctx->ps_or_hierarchical_tf_identifier(),
+			"tf_call identifier");
+	TFCallArgList *call_args;
+
+	if (ctx->list_of_arguments()) {
+		call_args = child_accept<TFCallArgList>(
+			ctx->list_of_arguments(),
+			"tf_call list_of_arguments");
+	} else {
+		call_args = new TFCallArgList();
+	}
+
+	ret = new ExprTFCall(
+			ExprPsHierRefH(tf_id),
+			TFCallArgListH(call_args));
+
+	leave("visitTf_call");
+
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitList_of_arguments(SystemVerilogParser::List_of_argumentsContext *ctx) {
+	IChildItem *ret = 0;
+	std::vector<TFCallArgH> args;
+
+	enter("visitList_of_arguments");
+
+	if (ctx->all_name_mapped.size() > 0) {
+	} else {
+		// Arguments are positional
+		if (ctx->first_pos) {
+			Expr *expr = expr_accept(ctx->first_pos, "task arg");
+			args.push_back(TFCallArgH(new TFCallArg(ExprH(expr))));
+		} else {
+			// Add an empty first parameter
+			args.push_back(TFCallArgH(new TFCallArg()));
+		}
+
+		// positional arguments
+		for (uint32_t i=0; i<ctx->pos_arg_list()->args.size(); i++) {
+			SystemVerilogParser::Pos_argContext *arg = ctx->pos_arg_list()->args.at(i);
+			if (arg->expression()) {
+				// Add a positional argument
+				Expr *expr = safe_accept<Expr>(arg->expression(), "positional arg");
+				args.push_back(TFCallArgH(new TFCallArg(ExprH(expr))));
+			} else {
+				// Add an empty argument
+				args.push_back(TFCallArgH(new TFCallArg()));
+			}
+		}
+	}
+
+	ret = new TFCallArgList(args);
+
+	leave("visitList_of_arguments");
+	fflush(stdout);
+
+	return ret;
+}
+
 antlrcpp::Any SV2ModelVisitor::visitHierarchical_identifier(SystemVerilogParser::Hierarchical_identifierContext *ctx) {
 	Expr *ret = 0;
 	std::vector<ExprVarElemRefH> path;
@@ -829,7 +1002,51 @@ antlrcpp::Any SV2ModelVisitor::visitHierarchical_identifier(SystemVerilogParser:
 
 	leave("visitHierarchical_identifier");
 
-	ret = new ExprVarRef(path);
+	ret = new ExprPsHierRef(true, path);
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitPs_or_hierarchical_identifier(SystemVerilogParser::Ps_or_hierarchical_identifierContext *ctx) {
+	Expr *ret = 0;
+
+	enter("visitPs_or_hierarchical_identifier");
+	if (ctx->tf_identifier()) {
+		// package_scope / tf_identifier
+		ExprPsHierRef *ps = expr_accept<ExprPsHierRef>(
+				ctx->package_scope(), "package_scope");
+		ps->addPath(ExprVarElemRefH(
+				new ExprVarElemRef(ctx->tf_identifier()->getText(),
+						ExprH(0), ExprH(0))
+		));
+		ret = ps;
+	} else {
+		// plain hierarchical_identifier
+		ret = ctx->hierarchical_tf_identifier()->hierarchical_identifier()->accept(this);
+	}
+
+	leave("visitPs_or_hierarchical_identifier");
+
+	return ret;
+}
+
+antlrcpp::Any SV2ModelVisitor::visitPackage_scope(SystemVerilogParser::Package_scopeContext *ctx) {
+	Expr *ret = 0;
+
+	enter("visitPackage_scope");
+	std::vector<ExprVarElemRefH> path;
+
+	if (ctx->package_identifier()) {
+		path.push_back(ExprVarElemRefH(new ExprVarElemRef(
+				ctx->package_identifier()->identifier()->getText(),
+				ExprH(0), ExprH(0))));
+	} else {
+		path.push_back(ExprVarElemRefH(new ExprVarElemRef("$unit", ExprH(0), ExprH(0))));
+	}
+
+	ret = new ExprPsHierRef(false, path);
+
+	leave("visitPackage_scope");
+
 	return ret;
 }
 

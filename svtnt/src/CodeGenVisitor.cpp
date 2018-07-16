@@ -6,9 +6,13 @@
  */
 
 #include "CodeGenVisitor.h"
+#include <stdio.h>
+#include <stdarg.h>
 
 CodeGenVisitor::CodeGenVisitor(const std::string &outdir) :
 	m_outdir(outdir), m_output(outdir) {
+	m_active_out = 0;
+	m_emit_host_types = false;
 	// TODO Auto-generated constructor stub
 
 }
@@ -23,11 +27,23 @@ bool CodeGenVisitor::generate(Model *m) {
 		return false;
 	}
 
+	m_emit_host_types = false;
+
 	m_svtnt_h = m_output.open("svtnt.h");
 	m_svtnt_cpp = m_output.open("svtnt.cpp");
 	m_svtnt_mk = m_output.open("svtnt.mk");
 	m_svtnt_unit_h = m_output.open("svtnt_unit.h");
 	m_svtnt_unit_cpp = m_output.open("svtnt_unit.cpp");
+
+	m_svtnt_dpi_h = m_output.open("svtnt_dpi.h");
+	m_svtnt_dpi_cpp = m_output.open("svtnt_dpi.cpp");
+
+	// TODO: header
+	m_svtnt_dpi_h->println("#ifdef __cplusplus");
+	m_svtnt_dpi_h->println("extern \"C\" {");
+	m_svtnt_dpi_h->println("#endif /* __cplusplus */");
+
+	m_svtnt_dpi_cpp->println("#include \"svtnt_dpi.h\"");
 
 	m_svtnt_h->println("namespace svtnt {");
 	m_svtnt_h->inc_indent();
@@ -71,9 +87,129 @@ bool CodeGenVisitor::generate(Model *m) {
 	m_svtnt_cpp->dec_indent();
 	m_svtnt_cpp->println("}");
 
+	// Close out the DPI header file
+	m_svtnt_dpi_h->println("#ifdef __cplusplus");
+	m_svtnt_dpi_h->println("}");
+	m_svtnt_dpi_h->println("#endif /* __cplusplus */");
+
 	m_output.close();
 
 	return true;
+}
+
+void CodeGenVisitor::visit_data_type_integer_atom(DataTypeIntegerAtom *t) {
+	if (!m_active_out) {
+		error("m_active_out not set");
+		return;
+	}
+
+	if (m_emit_host_types) {
+		if (!t->isSigned()) {
+			m_active_out->print("unsigned ");
+		}
+	} else {
+		if (t->isSigned()) {
+			m_active_out->print("Int");
+		} else {
+			m_active_out->print("Uint");
+		}
+	}
+
+	switch (t->getAtomType()) {
+		case DataTypeIntegerAtom::AtomByte:
+			if (m_emit_host_types) {
+				m_active_out->print("char");
+			} else {
+				m_active_out->print("8Var");
+			}
+			break;
+		case DataTypeIntegerAtom::AtomInteger:
+		case DataTypeIntegerAtom::AtomInt:
+			if (m_emit_host_types) {
+				m_active_out->print("int");
+			} else {
+				m_active_out->print("32Var");
+			}
+			break;
+		case DataTypeIntegerAtom::AtomLongInt:
+			if (m_emit_host_types) {
+				m_active_out->print("long long");
+			} else {
+				m_active_out->print("64Var");
+			}
+			break;
+
+		case DataTypeIntegerAtom::AtomShortInt:
+			if (m_emit_host_types) {
+				m_active_out->print("short");
+			} else {
+				m_active_out->print("16Var");
+			}
+			break;
+
+		default:
+			m_active_out->print("unknown_atom_type");
+	}
+}
+
+void CodeGenVisitor::visit_data_type_string(DataTypeString *t) {
+	if (m_emit_host_types) {
+		m_active_out->print("char *");
+	} else {
+		// TODO: we'll need to track differences, I think
+		m_active_out->print("std::string");
+	}
+}
+
+void CodeGenVisitor::visit_import_task_function(ImportTaskFunction *tf) {
+	std::string import_name;
+
+	if (tf->getCIdentifier() != "") {
+		import_name = tf->getCIdentifier();
+	} else {
+		import_name = tf->getPrototype()->getName();
+	}
+
+	// Write the prototype
+	m_svtnt_dpi_h->print("%s", m_svtnt_dpi_h->indent());
+
+	if (tf->getPrototype()->isFunc()) {
+		// return type
+		if (tf->getPrototype()->getReturnType().get()) {
+			// Actual data type
+			visit_with_output(
+					tf->getPrototype()->getReturnType().get(),
+					m_svtnt_dpi_h);
+		} else {
+			m_svtnt_dpi_h->print("void");
+		}
+	} else {
+		// Return interrupt status
+		m_svtnt_dpi_h->print("int");
+	}
+
+	m_svtnt_dpi_h->print(" %s(", import_name.c_str());
+
+	for (uint32_t i=0; i<tf->getPrototype()->getParameters().size(); i++) {
+		// Handle direction
+		visit_with_output(
+				tf->getPrototype()->getParameters().at(i).get(),
+				m_svtnt_dpi_h);
+
+
+		if (i+1 < tf->getPrototype()->getParameters().size() ||
+				tf->getPrototype()->isVariadic()) {
+			m_svtnt_dpi_h->print(", ");
+		}
+	}
+
+	if (tf->getPrototype()->isVariadic()) {
+		m_svtnt_dpi_h->print("...");
+	}
+
+	// TODO: parameters
+	m_svtnt_dpi_h->print(");\n");
+
 }
 
 void CodeGenVisitor::visit_class(Class *c) {
@@ -102,6 +238,11 @@ void CodeGenVisitor::visit_class(Class *c) {
 
 	m_output.close(basename + ".h");
 	m_output.close(basename + ".cpp");
+}
+
+void CodeGenVisitor::visit_method_param(MethodParam *p) {
+	p->getDataType()->accept(this);
+	m_active_out->print(" %s", p->getName().c_str());
 }
 
 void CodeGenVisitor::visit_package(Package *p) {
@@ -141,5 +282,37 @@ void CodeGenVisitor::visit_package(Package *p) {
 
 	m_output.close(basename + ".h");
 	m_output.close(basename + ".cpp");
+}
+
+std::string CodeGenVisitor::to_c_identifier(const std::string &id) {
+	std::string ret;
+
+	for (uint32_t i=0; i<id.length(); i++) {
+		char c = id.at(i);
+		// We'll implement any escaping later
+		if (i == 0 && c == '\\') {
+			continue;
+		}
+	}
+
+	return ret;
+}
+
+void CodeGenVisitor::visit_with_output(IChildItem *c, const OutputH &out) {
+	Output *curr_out = m_active_out;
+	m_active_out = out.get();
+	c->accept(this);
+	m_active_out = curr_out;
+}
+
+void CodeGenVisitor::error(const char *fmt, ...) {
+	va_list ap;
+
+	va_start(ap, fmt);
+	fprintf(stdout, "Error: ");
+	vfprintf(stdout, fmt, ap);
+	fprintf(stdout, "\n");
+
+	va_end(ap);
 }
 

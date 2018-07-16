@@ -8,10 +8,15 @@
 #include "ExprVarElemRef.h"
 
 ExprVarElemRef::ExprVarElemRef(
+		const std::string 	&id) : m_id(id) {
+
+}
+
+
+ExprVarElemRef::ExprVarElemRef(
 		const std::string 	&id,
 		const ExprH			&left,
 		const ExprH			&right) : m_id(id), m_left(left), m_right(right) {
-	// TODO Auto-generated constructor stub
 
 }
 

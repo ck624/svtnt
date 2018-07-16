@@ -18,6 +18,7 @@ static void run_test(const std::string &doc) {
 
 
 	ASSERT_TRUE(svtnt.parse(in, testcase + "." + test));
+	ASSERT_TRUE(svtnt.link());
 	ASSERT_TRUE(svtnt.generate(testcase + "." + test + "/outdir"));
 }
 
@@ -51,6 +52,43 @@ TEST(tf_tests, task_params) {
       package my_pkg;
         task doit(string msg, int count);
         endtask
+      endpackage
+			)";
+
+	run_test(doc);
+}
+
+TEST(tf_tests, ext_variadic_params) {
+	const char *doc = R"(
+      package my_pkg;
+        function void variadic(string msg, ...);
+        endfunction
+      endpackage
+			)";
+
+	run_test(doc);
+}
+
+TEST(tf_tests, svtnt_import) {
+	const char *doc = R"(
+      package svtnt_pkg;
+        import "SVTNT" __svtnt_display=function void \$display (string msg, ...);
+      endpackage
+      package my_pkg;
+       function void doit();
+         svtnt_pkg::doit();
+       endfunction
+      endpackage
+			)";
+
+	run_test(doc);
+}
+
+TEST(tf_tests, escaped_identifiers) {
+	const char *doc = R"(
+      package my_pkg;
+        function void \$display (string msg, ...);
+        endfunction
       endpackage
 			)";
 

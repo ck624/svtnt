@@ -11,10 +11,11 @@
 class DataType : public ChildItem {
 public:
 	enum TypeKind {
+		TypeKindNone,
 		IntegerAtom
 	};
 
-	DataType(TypeKind kind);
+	DataType(TypeKind kind=TypeKindNone);
 
 	virtual ~DataType();
 

@@ -17,6 +17,6 @@ StatementExpr::~StatementExpr() {
 }
 
 void StatementExpr::accept(IModelVisitor *v) {
-	// TODO:
+	v->visit_statement_expr(this);
 }
 

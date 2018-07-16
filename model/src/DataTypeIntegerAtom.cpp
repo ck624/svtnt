@@ -16,3 +16,6 @@ DataTypeIntegerAtom::~DataTypeIntegerAtom() {
 	// TODO Auto-generated destructor stub
 }
 
+void DataTypeIntegerAtom::accept(IModelVisitor *v) {
+	v->visit_data_type_integer_atom(this);
+}

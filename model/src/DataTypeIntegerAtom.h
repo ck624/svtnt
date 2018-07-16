@@ -5,8 +5,6 @@
  *      Author: ballance
  */
 
-#ifndef MODEL_SRC_DATATYPEINTEGERATOM_H_
-#define MODEL_SRC_DATATYPEINTEGERATOM_H_
 #pragma once
 #include "DataType.h"
 
@@ -26,13 +24,14 @@ public:
 
 	virtual ~DataTypeIntegerAtom();
 
-	AtomType getAtomType() const { return m_atom_type; }
+	DataTypeIntegerAtom::AtomType getAtomType() const { return m_atom_type; }
 
 	bool isSigned() const { return m_is_signed; }
+
+	virtual void accept(IModelVisitor *v) override;
 
 private:
 	AtomType				m_atom_type;
 	bool					m_is_signed;
 };
 
-#endif /* MODEL_SRC_DATATYPEINTEGERATOM_H_ */

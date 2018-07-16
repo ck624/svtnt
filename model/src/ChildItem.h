@@ -10,7 +10,7 @@
 
 class ChildItem : public virtual IChildItem {
 public:
-	ChildItem(ItemType t);
+	ChildItem(ItemType t=TypeUnknown);
 
 	virtual ~ChildItem();
 

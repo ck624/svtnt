@@ -9,6 +9,7 @@
 #include "shptr.h"
 #include "ChildItem.h"
 #include "ScopeItem.h"
+#include "Expr.h"
 
 class Model : public ChildItem, public virtual ScopeItem {
 public:

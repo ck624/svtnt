@@ -8,11 +8,7 @@
 #include "TaskFunction.h"
 
 TaskFunction::TaskFunction(
-		const std::string 	&name,
-		bool				is_func) :
-		ChildItem(TypeTaskFunc),
-		NamedItem(name), m_is_func(is_func) {
-	// TODO Auto-generated constructor stub
+		const TaskFunctionProtoH	&prototype) : m_prototype(prototype) {
 
 }
 

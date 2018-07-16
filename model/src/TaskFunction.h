@@ -11,35 +11,24 @@
 #include "NamedItem.h"
 #include "DataType.h"
 #include "MethodParam.h"
+#include "TaskFunctionProto.h"
 
 class TaskFunction :
 		public ChildItem,
-		public virtual ScopeItem,
-		public virtual NamedItem {
+		public virtual ScopeItem {
 public:
 	TaskFunction(
-			const std::string 	&name,
-			bool				is_func);
+			const TaskFunctionProtoH	&prototype);
 
 	virtual ~TaskFunction();
 
-	bool isFunc() const { return m_is_func; }
-
-	const DataTypeH &getReturnType() const { return m_ret; }
-
-	void setReturnType(const DataTypeH &ret) { m_ret = ret; }
-
-	const std::vector<MethodParamH> &getParameters() const { return m_parameters; }
-
-	void setParameters(const std::vector<MethodParamH> &p) { m_parameters = p; }
+	const TaskFunctionProtoH &getPrototype() const { return m_prototype; }
 
 	virtual void accept(IModelVisitor *v) override;
 
 private:
+	TaskFunctionProtoH					m_prototype;
 
-	bool							m_is_func;
-	DataTypeH						m_ret;
-	std::vector<MethodParamH>		m_parameters;
 
 };
 

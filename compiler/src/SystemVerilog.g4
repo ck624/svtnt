@@ -1168,14 +1168,31 @@ function_prototype:
   ;
   
 dpi_import_export:
+  dpi_import_function
+  | dpi_import_task
+  | dpi_export_function
+  | dpi_export_task
+  ;
+  
+dpi_import_function:
   'import' dpi_spec_string ( dpi_function_import_property )? ( c_identifier '=' )? dpi_function_proto ';'
-  | 'import' dpi_spec_string ( dpi_task_import_property )? ( c_identifier '=' )? dpi_task_proto ';'
-  | 'export' dpi_spec_string ( c_identifier '=' )? 'function' function_identifier ';'
-  | 'export' dpi_spec_string ( c_identifier '=' )? 'task' task_identifier ';'
+  ;
+
+dpi_import_task:
+  'import' dpi_spec_string ( dpi_task_import_property )? ( c_identifier '=' )? dpi_task_proto ';'
+  ;
+
+dpi_export_function:  
+  'export' dpi_spec_string ( c_identifier '=' )? 'function' function_identifier ';'
+  ;
+ 
+dpi_export_task:  
+  'export' dpi_spec_string ( c_identifier '=' )? 'task' task_identifier ';'
   ;
   
 dpi_spec_string: 
-  '"DPI-C"' | '"DPI"'
+  // SVTNT: The import spec 'SVTNT' specifies the built-in function style
+  '"DPI-C"' | '"DPI"' | '"SVTNT"'
   ;
   
 dpi_function_import_property: 
@@ -1217,9 +1234,10 @@ tf_item_declaration:
   block_item_declaration
   | tf_port_declaration
   ;
-  
+
+// SVTNT: Allow declaring variadic functions  
 tf_port_list:
-  tf_port_item ( ',' tf_port_item )*
+  tf_port_item ( ',' tf_port_item )* ( is_variadic=',' '...' )?
   ;
  
 // TODO: Disallow completely-empty port items
@@ -2673,14 +2691,18 @@ tf_call:
   
 system_tf_call:
   system_tf_identifier ( '(' list_of_arguments ')' )? 
-  | system_tf_identifier '(' data_type ( ',' expression )? ')'
+  | is_type_call=system_tf_identifier '(' data_type ( ',' expression )? ')'
   ;
   
 subroutine_call:
   tf_call
   | system_tf_call
   | method_call
-  | ( 'std' '::' )? randomize_call
+  | standalone_randomize_call
+  ;
+  
+standalone_randomize_call:
+  ( 'std' '::' )? randomize_call
   ;
   
 function_subroutine_call: 
@@ -2688,8 +2710,20 @@ function_subroutine_call:
   ;
   
 list_of_arguments:
-  ( expression )? ( ',' ( expression )? )* ( ',' '.' identifier '(' ( expression )? ')' )*
-  | '.' identifier '(' ( expression )? ')' ( ',' '.' identifier '(' ( expression )? ')' )*
+  ( first_pos=expression )? pos_arg_list ( ',' name_mapped+=name_mapped_arg )*
+  | all_name_mapped+=name_mapped_arg ( ',' all_name_mapped+=name_mapped_arg )*
+  ;
+  
+pos_arg:
+  ',' expression?
+  ;
+  
+pos_arg_list:
+  (args+=pos_arg)*
+  ;
+  
+name_mapped_arg:
+  '.' identifier '(' (expression)? ')'
   ;
   
 method_call: 
@@ -3150,7 +3184,9 @@ cover_point_identifier: identifier;
 cross_identifier: identifier;
 dynamic_array_variable_identifier: variable_identifier;
 enum_identifier: identifier;
-ESCAPED_ID : '\\' ('\u0021'..'\u007E')+ ~ [ \r\t\n]* ;
+ESCAPED_ID : 
+	'\\' ('\u0021'..'\u007E')+ ~ [ \r\t\n]* 
+	;
 escaped_identifier: ESCAPED_ID;
 formal_identifier: identifier;
 formal_port_identifier: identifier;
@@ -3194,7 +3230,7 @@ net_type_identifier : identifier;
 output_port_identifier : identifier;
 package_identifier : identifier;
 
-package_scope :
+package_scope:
 	package_identifier '::'
 	| '$unit' '::'
 	;
@@ -3228,24 +3264,34 @@ ps_or_hierarchical_array_identifier :
 	;
 	
 ps_or_hierarchical_net_identifier: 
-  ( package_scope )? net_identifier 
-  | hierarchical_net_identifier	
+//  ( package_scope )? net_identifier 
+//  | hierarchical_net_identifier	
+	ps_or_hierarchical_identifier
   ;
   
 ps_or_hierarchical_property_identifier :
-	( package_scope )? property_identifier
-	| hierarchical_property_identifier
+//	( package_scope )? property_identifier
+//	| hierarchical_property_identifier
+	ps_or_hierarchical_identifier
 	;
 	
 ps_or_hierarchical_sequence_identifier :
-	( package_scope )? sequence_identifier
-	| hierarchical_sequence_identifier
+//	( package_scope )? sequence_identifier
+//	| hierarchical_sequence_identifier
+	ps_or_hierarchical_identifier
 	;
 	
 ps_or_hierarchical_tf_identifier :
+//	( package_scope )? tf_identifier
+//	| hierarchical_tf_identifier
+	ps_or_hierarchical_identifier
+	;
+	
+ps_or_hierarchical_identifier:
 	( package_scope )? tf_identifier
 	| hierarchical_tf_identifier
 	;
+	
 	
 ps_parameter_identifier : 
 	( package_scope | class_scope )? parameter_identifier

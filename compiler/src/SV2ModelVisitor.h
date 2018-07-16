@@ -30,6 +30,10 @@ public:
 
     virtual antlrcpp::Any visitTf_port_item(SystemVerilogParser::Tf_port_itemContext *ctx) override;
 
+    virtual antlrcpp::Any visitFunction_prototype(SystemVerilogParser::Function_prototypeContext *ctx) override;
+
+    virtual antlrcpp::Any visitDpi_import_function(SystemVerilogParser::Dpi_import_functionContext *ctx) override;
+
     antlrcpp::Any visitData_type_integer_vector(SystemVerilogParser::Data_type_integer_vectorContext *ctx) override;
 
     antlrcpp::Any visitData_type_integer_atom(SystemVerilogParser::Data_type_integer_atomContext *ctx) override;
@@ -94,11 +98,37 @@ public:
 
     antlrcpp::Any visitFunction_subroutine_call(SystemVerilogParser::Function_subroutine_callContext *ctx) override;
 
+    antlrcpp::Any visitTf_call(SystemVerilogParser::Tf_callContext *ctx) override;
+
+    antlrcpp::Any visitSystem_tf_call(SystemVerilogParser::System_tf_callContext *ctx) override;
+
+    antlrcpp::Any visitList_of_arguments(SystemVerilogParser::List_of_argumentsContext *ctx) override;
+
     antlrcpp::Any visitHierarchical_identifier(SystemVerilogParser::Hierarchical_identifierContext *ctx) override;
+
+    antlrcpp::Any visitPs_or_hierarchical_identifier(SystemVerilogParser::Ps_or_hierarchical_identifierContext *ctx) override;
+
+    antlrcpp::Any visitPackage_scope(SystemVerilogParser::Package_scopeContext *ctx) override;
 
 protected:
 
-    template <class A, class B=A> A *safe_accept(
+    template <class A> A *safe_accept(
+    		antlr4::ParserRuleContext *c,
+			const std::string &hint) {
+    	A *ret = 0;
+    	try {
+    		ret = c->accept(this);
+    	} catch (std::bad_cast &e) {
+    		error("Failed to cast %s to %s (%s)",
+    				hint.c_str(),
+					typeid(A).name(),
+					c->getText().c_str());
+    	}
+
+    	return ret;
+    }
+
+    template <class A, class B=A> A *safe_accept2(
     		antlr4::ParserRuleContext *c,
 			const std::string &hint) {
     	A *ret = 0;
@@ -109,6 +139,49 @@ protected:
     		error("Failed to cast %s to %s (%s)",
     				hint.c_str(),
 					typeid(B).name(),
+					c->getText().c_str());
+    	}
+
+    	return ret;
+    }
+
+    template <class A=IChildItem> A *child_accept(
+    		antlr4::ParserRuleContext *c,
+			const std::string &hint,
+			bool				error_on_null=true) {
+    	A *ret = 0;
+    	IChildItem *child = 0;
+    	try {
+    		child = c->accept(this);
+    		ret = dynamic_cast<A *>(child);
+    		if (!ret && error_on_null) {
+    			error("Failed to re-cast to final type");
+    		}
+    	} catch (std::bad_cast &e) {
+    		error("Failed to cast %s to IChildItem (%s)",
+    				hint.c_str(),
+					c->getText().c_str());
+    	}
+
+    	return ret;
+    }
+
+    template <class A=Expr> A *expr_accept(
+    		antlr4::ParserRuleContext *c,
+			const std::string &hint,
+			bool				error_on_null=true) {
+    	A *ret = 0;
+    	Expr *expr = 0;
+    	try {
+    		expr = c->accept(this);
+    		ret = dynamic_cast<A *>(expr);
+    		if (!ret && expr && error_on_null) {
+    			error("Failed to re-cast to final type (%s)",
+    					hint.c_str());
+    		}
+    	} catch (std::bad_cast &e) {
+    		error("Failed to cast %s to Expr (%s)",
+    				hint.c_str(),
 					c->getText().c_str());
     	}
 

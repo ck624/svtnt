@@ -7,6 +7,7 @@
 #pragma once
 
 enum ItemType {
+	TypeUnknown,
 	TypeClass,
 	TypeDataType,
 	TypeMethodParam,

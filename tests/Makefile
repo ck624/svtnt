@@ -71,7 +71,7 @@ debug :
 	$(Q)cd $(SVTNT_TESTS_DIR)/rundir ; gdb --args $(BUILD_DIR)/svtnt_tests$(EXEEXT) $(GTEST_ARGS)
 	
 clean :
-	$(Q)rm -f $(BUILD_DIR)/*.o $(BUILD_DIR)/*.d
+	$(Q)rm -f $(BUILD_DIR)/*.o $(BUILD_DIR)/*.d $(BUILD_DIR)/*.gen
 	
 clean-all :
 	$(Q)rm -rf $(BUILD_DIR)
