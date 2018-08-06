@@ -18,6 +18,7 @@
 #include "StatementFor.h"
 #include "Expr.h"
 #include "ExprIncDec.h"
+#include "ExprStringLiteral.h"
 #include "ExprTFCall.h"
 #include "ExprVarElemRef.h"
 #include "ExprVarRef.h"
@@ -754,7 +755,8 @@ antlrcpp::Any SV2ModelVisitor::visitString_literal(SystemVerilogParser::String_l
 	Expr *ret = 0;
 
 	enter("visitString_literal");
-
+	const std::string &str = ctx->DOUBLE_QUOTED_STRING()->getText();
+	ret = new ExprStringLiteral(str.substr(1, str.length()-2));
 	leave("visitString_literal");
 
 	return ret;
@@ -927,6 +929,10 @@ antlrcpp::Any SV2ModelVisitor::visitTf_call(SystemVerilogParser::Tf_callContext 
 		call_args = child_accept<TFCallArgList>(
 			ctx->list_of_arguments(),
 			"tf_call list_of_arguments");
+
+		for (uint32_t i=0; i<call_args->getArgs().size(); i++) {
+			fprintf(stdout, "  arg[%d]=%p\n", i, call_args->getArgs().at(i).get());
+		}
 	} else {
 		call_args = new TFCallArgList();
 	}
@@ -946,35 +952,68 @@ antlrcpp::Any SV2ModelVisitor::visitList_of_arguments(SystemVerilogParser::List_
 
 	enter("visitList_of_arguments");
 
-	if (ctx->all_name_mapped.size() > 0) {
-	} else {
-		// Arguments are positional
-		if (ctx->first_pos) {
-			Expr *expr = expr_accept(ctx->first_pos, "task arg");
-			args.push_back(TFCallArgH(new TFCallArg(ExprH(expr))));
-		} else {
-			// Add an empty first parameter
-			args.push_back(TFCallArgH(new TFCallArg()));
-		}
+	if (ctx->list_of_pos_args()) {
+		fprintf(stdout, "list_of_pos_args %s\n", ctx->list_of_pos_args()->getText().c_str());
+		Expr *first = expr_accept(ctx->list_of_pos_args()->expression(),
+				"first positional argument");
+		fprintf(stdout, "first=%p\n", first);
 
-		// positional arguments
-		for (uint32_t i=0; i<ctx->pos_arg_list()->args.size(); i++) {
-			SystemVerilogParser::Pos_argContext *arg = ctx->pos_arg_list()->args.at(i);
+		args.push_back(TFCallArgH(new TFCallArg(ExprH(first))));
+		fprintf(stdout, "  args(0)=%p\n", args.at(0).get());
+		for (uint32_t i=0; i<ctx->list_of_pos_args()->pos_arg().size(); i++) {
+			SystemVerilogParser::Pos_argContext *arg =
+					ctx->list_of_pos_args()->pos_arg(i);
 			if (arg->expression()) {
-				// Add a positional argument
-				Expr *expr = safe_accept<Expr>(arg->expression(), "positional arg");
+				Expr *expr = expr_accept(arg->expression(),
+						"positional argument");
 				args.push_back(TFCallArgH(new TFCallArg(ExprH(expr))));
 			} else {
-				// Add an empty argument
-				args.push_back(TFCallArgH(new TFCallArg()));
+				todo("default positional argument");
 			}
 		}
+	} else if (ctx->list_of_pos_args_first_empty()) {
+		fprintf(stdout, "list_of_pos_args_first_empty\n");
+	} else if (ctx->all_name_mapped.size() > 0) {
+		fprintf(stdout, "all_name_mapped\n");
+	} else {
+		fprintf(stdout, "Unknown!!\n");
 	}
+
+//	if (ctx->all_name_mapped.size() > 0) {
+//	} else {
+//		// Arguments are positional
+//		if (ctx->expression()) {
+//			fprintf(stdout, "first expression exists\n");
+//		}
+//		if (ctx->first_pos) {
+//			fprintf(stdout, "visit first_pos %s\n", ctx->first_pos->getText().c_str());
+//			Expr *expr = expr_accept(ctx->first_pos, "task arg");
+//			args.push_back(TFCallArgH(new TFCallArg(ExprH(expr))));
+//		} else {
+//			fprintf(stdout, "add empty first parameter\n");
+//			// Add an empty first parameter
+//			args.push_back(TFCallArgH(new TFCallArg()));
+//		}
+//
+//		// positional arguments
+//		for (uint32_t i=0; i<ctx->pos_arg_list()->args.size(); i++) {
+//			SystemVerilogParser::Pos_argContext *arg = ctx->pos_arg_list()->args.at(i);
+//			if (arg->expression()) {
+//				// Add a positional argument
+//				fprintf(stdout, "visit positional argument\n");
+//				Expr *expr = safe_accept<Expr>(arg->expression(), "positional arg");
+//				args.push_back(TFCallArgH(new TFCallArg(ExprH(expr))));
+//			} else {
+//				fprintf(stdout, "add empty positional argument\n");
+//				// Add an empty argument
+//				args.push_back(TFCallArgH(new TFCallArg()));
+//			}
+//		}
+//	}
 
 	ret = new TFCallArgList(args);
 
 	leave("visitList_of_arguments");
-	fflush(stdout);
 
 	return ret;
 }
@@ -1012,12 +1051,22 @@ antlrcpp::Any SV2ModelVisitor::visitPs_or_hierarchical_identifier(SystemVerilogP
 	enter("visitPs_or_hierarchical_identifier");
 	if (ctx->tf_identifier()) {
 		// package_scope / tf_identifier
-		ExprPsHierRef *ps = expr_accept<ExprPsHierRef>(
+		ExprPsHierRef *ps = 0;
+		if (ctx->package_scope()) {
+			ps = expr_accept<ExprPsHierRef>(
 				ctx->package_scope(), "package_scope");
-		ps->addPath(ExprVarElemRefH(
-				new ExprVarElemRef(ctx->tf_identifier()->getText(),
-						ExprH(0), ExprH(0))
-		));
+			ps->addPath(ExprVarElemRefH(
+					new ExprVarElemRef(ctx->tf_identifier()->getText(),
+							ExprH(0), ExprH(0))
+			));
+		} else {
+			std::vector<ExprVarElemRefH> path;
+			path.push_back(ExprVarElemRefH(
+					new ExprVarElemRef(ctx->tf_identifier()->getText(),
+							ExprH(0), ExprH(0))
+			));
+			ps = new ExprPsHierRef(0, path);
+		}
 		ret = ps;
 	} else {
 		// plain hierarchical_identifier

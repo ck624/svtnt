@@ -12,6 +12,7 @@ class DataType;
 class DataTypeIntegerAtom;
 class DataTypeString;
 class ExprPsHierRef;
+class ExprStringLiteral;
 class ExprTFCall;
 class ImportTaskFunction;
 class MethodParam;
@@ -33,6 +34,8 @@ public:
 	virtual void visit_data_type_string(DataTypeString *t) = 0;
 
 	virtual void visit_expr_ps_hier_ref(ExprPsHierRef *e) = 0;
+
+	virtual void visit_expr_string_literal(ExprStringLiteral *e) = 0;
 
 	virtual void visit_expr_tf_call(ExprTFCall *e) = 0;
 

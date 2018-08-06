@@ -161,6 +161,41 @@ void CodeGenVisitor::visit_data_type_string(DataTypeString *t) {
 	}
 }
 
+void CodeGenVisitor::visit_expr_string_literal(ExprStringLiteral *e) {
+	m_active_out->print("\"%s\"", e->getValue().c_str());
+}
+
+void CodeGenVisitor::visit_expr_tf_call(ExprTFCall *e) {
+	if (e->getTfRef()->getTarget().get()) {
+		m_active_out->print("<resolved>");
+	} else {
+		m_active_out->print("<unknown>");
+	}
+	m_active_out->print("(");
+	for (uint32_t i=0; i<e->getCallArgs()->getArgs().size(); i++) {
+		TFCallArgH arg = e->getCallArgs()->getArgs().at(i);
+
+		if (!arg.get()) {
+			error("null call parameter");
+			continue;
+		}
+
+		if (arg->isDefault()) {
+			m_active_out->print("<default>");
+		} else if (arg->getValue().get()) {
+			arg->getValue()->accept(this);
+		} else {
+			m_active_out->print("<null>");
+		}
+
+		if (i+1 < e->getCallArgs()->getArgs().size()) {
+			m_active_out->print(", ");
+		}
+	}
+	// TODO: determine appropriate arguments and emit
+	m_active_out->print(")");
+}
+
 void CodeGenVisitor::visit_import_task_function(ImportTaskFunction *tf) {
 	std::string import_name;
 
@@ -241,7 +276,11 @@ void CodeGenVisitor::visit_class(Class *c) {
 }
 
 void CodeGenVisitor::visit_method_param(MethodParam *p) {
-	p->getDataType()->accept(this);
+	if (p->getDataType().get()) {
+		p->getDataType()->accept(this);
+	} else {
+		todo("null parameter data type");
+	}
 	m_active_out->print(" %s", p->getName().c_str());
 }
 
@@ -251,18 +290,25 @@ void CodeGenVisitor::visit_package(Package *p) {
 	OutputH pkg_h = m_output.open(basename + ".h");
 	OutputH pkg_cpp = m_output.open(basename + ".cpp");
 
+	std::pair<OutputH,OutputH> out_file = m_out_file;
+	m_out_file = std::pair<OutputH,OutputH>(pkg_cpp,pkg_h);
+
 	m_packages.push_back(p->getName());
 
-	// Visit children
-	ModelVisitorBase::visit_package(p);
 
+	pkg_h->println("#pragma once");
 	pkg_h->println("namespace svtnt {");
 	pkg_h->println("namespace %s {", p->getName().c_str());
 	pkg_h->inc_indent();
 
+	pkg_cpp->println("#include \"svtnt_dpi.h\"");
+	pkg_cpp->println("#include \"svtnt_%s.h\"", p->getName().c_str());
 	pkg_cpp->println("namespace svtnt {");
 	pkg_cpp->println("namespace %s {", p->getName().c_str());
 	pkg_cpp->inc_indent();
+
+	// Visit children
+	ModelVisitorBase::visit_package(p);
 
 	pkg_cpp->println("void init() {");
 	pkg_cpp->inc_indent();
@@ -282,6 +328,76 @@ void CodeGenVisitor::visit_package(Package *p) {
 
 	m_output.close(basename + ".h");
 	m_output.close(basename + ".cpp");
+
+	m_out_file = out_file;
+}
+
+void CodeGenVisitor::visit_statement_expr(StatementExpr *s) {
+	m_active_out->print("%s", m_active_out->indent());
+	s->getExpr()->accept(this);
+	m_active_out->print(";\n");
+}
+
+void CodeGenVisitor::visit_task_function(TaskFunction *tf) {
+	const OutputH &file_cpp = m_out_file.first;
+	const OutputH &file_h = m_out_file.second;
+
+	// Write the prototype
+	file_h->print("%s", file_h->indent());
+	file_cpp->print("%s", file_cpp->indent());
+
+	if (tf->getPrototype()->isFunc()) {
+		// return type
+		if (tf->getPrototype()->getReturnType().get()) {
+			// Actual data type
+			visit_with_output(
+					tf->getPrototype()->getReturnType().get(),
+					file_h);
+			visit_with_output(
+					tf->getPrototype()->getReturnType().get(),
+					file_cpp);
+		} else {
+			file_h->print("void");
+			file_cpp->print("void");
+		}
+	} else {
+		// Return interrupt status
+		file_h->print("int");
+		file_cpp->print("int");
+	}
+
+	// TODO: determine whether we're in a class
+	file_h->print(" %s(", tf->getPrototype()->getName().c_str());
+	file_cpp->print(" %s(", tf->getPrototype()->getName().c_str());
+
+	for (uint32_t i=0; i<tf->getPrototype()->getParameters().size(); i++) {
+		// Handle direction
+		visit_with_output(
+				tf->getPrototype()->getParameters().at(i).get(),
+				file_h);
+		visit_with_output(
+				tf->getPrototype()->getParameters().at(i).get(),
+				file_cpp);
+
+
+		if (i+1 < tf->getPrototype()->getParameters().size() ||
+				tf->getPrototype()->isVariadic()) {
+			file_h->print(", ");
+			file_cpp->print(", ");
+		}
+	}
+
+	file_h->print(");\n");
+	file_cpp->print(") {\n");
+	file_cpp->inc_indent();
+
+	Output *active_out = m_active_out;
+	m_active_out = file_cpp.get();
+	ModelVisitorBase::visit_scope(tf);
+	m_active_out = active_out;
+
+	file_cpp->dec_indent();
+	file_cpp->println("}");
 }
 
 std::string CodeGenVisitor::to_c_identifier(const std::string &id) {
@@ -310,6 +426,17 @@ void CodeGenVisitor::error(const char *fmt, ...) {
 
 	va_start(ap, fmt);
 	fprintf(stdout, "Error: ");
+	vfprintf(stdout, fmt, ap);
+	fprintf(stdout, "\n");
+
+	va_end(ap);
+}
+
+void CodeGenVisitor::todo(const char *fmt, ...) {
+	va_list ap;
+
+	va_start(ap, fmt);
+	fprintf(stdout, "TODO: ");
 	vfprintf(stdout, fmt, ap);
 	fprintf(stdout, "\n");
 

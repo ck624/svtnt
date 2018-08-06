@@ -727,7 +727,8 @@ ref_declaration:
 data_declaration:
   data_field_declaration
   | type_declaration
-  | package_import_declaration net_type_declaration
+  | package_import_declaration 
+  | net_type_declaration // TODO: believe this is an option, and there's a syntax error in the LRM
   ;
   
 data_field_declaration:
@@ -2686,11 +2687,11 @@ constant_function_call:
   ;
   
 tf_call: 
-  ps_or_hierarchical_tf_identifier ( attribute_instance )* ( '(' list_of_arguments ')' )?
+  ps_or_hierarchical_tf_identifier ( attribute_instance )* ( '(' list_of_arguments? ')' )?
   ;
   
 system_tf_call:
-  system_tf_identifier ( '(' list_of_arguments ')' )? 
+  system_tf_identifier ( '(' list_of_arguments? ')' )? 
   | is_type_call=system_tf_identifier '(' data_type ( ',' expression )? ')'
   ;
   
@@ -2708,19 +2709,31 @@ standalone_randomize_call:
 function_subroutine_call: 
   subroutine_call
   ;
-  
+
+// Expression followed by 
 list_of_arguments:
-  ( first_pos=expression )? pos_arg_list ( ',' name_mapped+=name_mapped_arg )*
+  list_of_pos_args ( ',' name_mapped+=name_mapped_arg )*
+  | list_of_pos_args_first_empty ( ',' name_mapped+=name_mapped_arg )*
   | all_name_mapped+=name_mapped_arg ( ',' all_name_mapped+=name_mapped_arg )*
+  ;
+  
+list_of_pos_args:
+  expression pos_arg*
+  ;
+  
+  
+list_of_pos_args_first_empty:
+  ',' pos_arg*
   ;
   
 pos_arg:
   ',' expression?
   ;
   
-pos_arg_list:
-  (args+=pos_arg)*
-  ;
+  
+//pos_arg_list:
+//  (args+=pos_arg)*
+//  ;
   
 name_mapped_arg:
   '.' identifier '(' (expression)? ')'
@@ -2813,6 +2826,7 @@ constant_indexed_range:
   ;
   
 expression:
+  primary
   | unary_operator ( attribute_instance )* primary
   | inc_or_dec_expression
   | '(' operator_assignment ')'
@@ -2831,7 +2845,6 @@ expression:
   | lhs=expression logical_and_op ( attribute_instance )* rhs=expression
   | lhs=expression logical_or_op ( attribute_instance )* rhs=expression
   | lhs=expression conditional_expression
-  | primary
   ;
   
 logical_or_op : '||';
@@ -2852,7 +2865,7 @@ add_sub_op: '+' | '-';
 mul_div_mod_op: '*' | '/' | '%';
   
 tagged_union_expression:
-  'tagged' member_identifier ( expression )?
+  'tagged' member_identifier expression?
   ;
   
 inside_expression: 
@@ -2934,7 +2947,7 @@ primary:
   | concatenation ( '[' range_expression ']' )?
   | multiple_concatenation ( '[' range_expression ']' )?
   | function_subroutine_call
-  | let_expression
+//TODO: can be empty  | let_expression
   | '(' mintypmax_expression ')'
   | cast
   | assignment_pattern_expression
@@ -2944,7 +2957,7 @@ primary:
   | '$'
   | 'null'
   ; 
-  
+
 primary_var_ref:
   ( class_qualifier | package_scope )? hierarchical_identifier select
   ;
@@ -3145,7 +3158,7 @@ DOUBLE_QUOTED_STRING : '"' (~ [\n\r])* '"';
 //***********************************************************************
 
 // A.9.1 Attributes
-attribute_instance : 
+attribute_instance: 
 	'(*' attr_spec ( ',' attr_spec )* '*)'
 	;
 	

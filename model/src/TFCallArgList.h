@@ -19,6 +19,10 @@ public:
 
 	virtual ~TFCallArgList();
 
+	const std::vector<TFCallArgH> getArgs() const {
+		return m_arguments;
+	}
+
 	virtual void accept(IModelVisitor *v) override;
 
 private:

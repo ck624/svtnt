@@ -76,7 +76,10 @@ TEST(tf_tests, svtnt_import) {
       endpackage
       package my_pkg;
        function void doit();
-         svtnt_pkg::doit();
+         import svtnt_pkg::*;
+         svtnt_pkg::\$display ("Hello World!");
+//         \$display ("Hello World!");
+//         display ("Hello World!");
        endfunction
       endpackage
 			)";

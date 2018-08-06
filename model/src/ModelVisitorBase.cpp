@@ -41,6 +41,10 @@ void ModelVisitorBase::visit_expr_ps_hier_ref(ExprPsHierRef *e) {
 	}
 }
 
+void ModelVisitorBase::visit_expr_string_literal(ExprStringLiteral *e) {
+
+}
+
 void ModelVisitorBase::visit_expr_tf_call(ExprTFCall *e) {
 	e->getTfRef()->accept(this);
 	e->getCallArgs()->accept(this);

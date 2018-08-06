@@ -12,6 +12,7 @@
 #include "DataTypeString.h"
 #include "Expr.h"
 #include "ExprPsHierRef.h"
+#include "ExprStringLiteral.h"
 #include "ExprTFCall.h"
 #include "ImportTaskFunction.h"
 #include "MethodParam.h"
@@ -36,6 +37,8 @@ public:
 	virtual void visit_data_type_string(DataTypeString *t) override;
 
 	void visit_expr_ps_hier_ref(ExprPsHierRef *e) override;
+
+	virtual void visit_expr_string_literal(ExprStringLiteral *e) override;
 
 	virtual void visit_expr_tf_call(ExprTFCall *e) override;
 

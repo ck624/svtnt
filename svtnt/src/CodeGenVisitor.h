@@ -12,6 +12,7 @@
 #include "OutputMgr.h"
 #include <string>
 #include <vector>
+#include <utility>
 
 class CodeGenVisitor : public virtual ModelVisitorBase {
 public:
@@ -28,11 +29,19 @@ public:
 
 	virtual void visit_data_type_string(DataTypeString *t) override;
 
+	virtual void visit_expr_string_literal(ExprStringLiteral *e) override;
+
+	virtual void visit_expr_tf_call(ExprTFCall *e) override;
+
 	virtual void visit_import_task_function(ImportTaskFunction *tf) override;
 
 	virtual void visit_method_param(MethodParam *p) override;
 
 	virtual void visit_package(Package *p) override;
+
+	virtual void visit_statement_expr(StatementExpr *s) override;
+
+	virtual void visit_task_function(TaskFunction *tf) override;
 
 
 private:
@@ -42,6 +51,8 @@ private:
 	void visit_with_output(IChildItem *c, const OutputH &out);
 
 	void error(const char *fmt, ...);
+
+	void todo(const char *fmt, ...);
 
 private:
 	std::string					m_outdir;
@@ -58,6 +69,8 @@ private:
 
 	OutputH						m_svtnt_dpi_h;
 	OutputH						m_svtnt_dpi_cpp;
+
+	std::pair<OutputH,OutputH>	m_out_file;
 
 	// Flag controls whether types are output as SVTNT types or host types
 	bool						m_emit_host_types;
