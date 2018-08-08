@@ -1,0 +1,4 @@
+[submodule "subprojects/sveditor"]
+	path = subprojects/sveditor
+	url = http://github.com/mballance/sveditor
+	branch = 201808-symbol-resolution

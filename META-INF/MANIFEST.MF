@@ -1,0 +1,9 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: SVTNT
+Bundle-SymbolicName: svtnt
+Bundle-Version: 1.2.3
+Automatic-Module-Name: svtnt
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Require-Bundle: org.eclipse.core.runtime,
+ net.sf.sveditor.core;bundle-version="1.2.3"
